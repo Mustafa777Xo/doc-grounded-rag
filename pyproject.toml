@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "doc-grounded-rag"
+version = "0.1.0"
+description = "Document-grounded RAG system"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+# core ML/RAG dependencies, will be added later.
+]
+
+[project.optional-dependencies]
+# Installed via: pip install -e ".[dev]"
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0"
+]
+
+# tell hatchling we are using modern '/src' dir layout
+[tool.hatch.build.targets.wheel]
+packages = ["src/rag"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
+
+# tooling configs
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+# E: pycodestyle errors, F: pyflakes, I: isort (auto-sort imports)
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.11"
+strict =true
+
+# prevents errors when libraries (like Pandas/Torch) lack type stubs
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
