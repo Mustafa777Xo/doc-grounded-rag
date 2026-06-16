@@ -2,8 +2,7 @@
 
 ## System Overview
 
-doc-grounded-rag is a modular RAG pipeline that answers questions
-grounded strictly in a corpus of PDF documents.
+doc-grounded-rag is a modular RAG pipeline that answers questions grounded strictly in a corpus of PDF documents.
 
 ## Pipeline Stages
 
