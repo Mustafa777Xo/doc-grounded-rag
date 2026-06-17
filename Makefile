@@ -1,4 +1,4 @@
-.PHONY: install format lint typecheck test check clean run-noop
+.PHONY: install format lint typecheck test coverage check clean run-noop
 
 # Installs the package in editable mode along with dev tools
 install:
@@ -22,12 +22,16 @@ typecheck:
 test:
 	pytest
 
+# Runs tests with a modest coverage threshold
+coverage:
+	pytest --cov=rag --cov-report=term-missing --cov-fail-under=60
+
 # Runs the Sprint 0 no-op end-to-end pipeline
 run-noop:
 	PYTHONPATH=src python -m rag.pipeline.orchestrator
 
 # The ultimate pre-commit / CI gate: runs all verifications
-check: lint typecheck test
+check: lint typecheck coverage
 
 # Cleans up temporary caches to prevent weird local state issues
 clean:
