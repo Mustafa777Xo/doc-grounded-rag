@@ -1,4 +1,4 @@
-.PHONY: install format lint typecheck test check clean
+.PHONY: install format lint typecheck test check clean run-noop
 
 # Installs the package in editable mode along with dev tools
 install:
@@ -21,6 +21,10 @@ typecheck:
 # Runs the test suite
 test:
 	pytest
+
+# Runs the Sprint 0 no-op end-to-end pipeline
+run-noop:
+	PYTHONPATH=src python -m rag.pipeline.orchestrator
 
 # The ultimate pre-commit / CI gate: runs all verifications
 check: lint typecheck test
