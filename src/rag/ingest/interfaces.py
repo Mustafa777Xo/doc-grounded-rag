@@ -21,6 +21,8 @@ class NoOpIngestor:
                 Document(
                     doc_id=doc_id,
                     source_file=path.name,
+                    source_path=str(path),
+                    total_pages=1,
                     pages=(
                         ParsedPage(
                             doc_id=doc_id,

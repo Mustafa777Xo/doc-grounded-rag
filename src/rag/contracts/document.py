@@ -35,6 +35,8 @@ class ParsedPage:
 class Document:
     doc_id: str
     source_file: str
+    source_path: str
+    total_pages: int
     pages: tuple[ParsedPage, ...]
 
     def __post_init__(self) -> None:
@@ -42,8 +44,14 @@ class Document:
             raise ValueError("doc_id cannot be empty")
         if not self.source_file:
             raise ValueError("source_file cannot be empty")
+        if not self.source_path:
+            raise ValueError("source_path cannot be empty")
+        if self.total_pages <= 0:
+            raise ValueError("total_pages must be greater than zero")
         if not self.pages:
             raise ValueError("pages cannot be empty")
+        if self.total_pages != len(self.pages):
+            raise ValueError("total_pages must match number of pages")
         for expected_page_number, page in enumerate(self.pages):
             if page.doc_id != self.doc_id:
                 raise ValueError("page doc_id must match document doc_id")
@@ -56,6 +64,8 @@ class Document:
         return {
             "doc_id": self.doc_id,
             "source_file": self.source_file,
+            "source_path": self.source_path,
+            "total_pages": self.total_pages,
             "pages": [page.to_dict() for page in self.pages],
         }
 

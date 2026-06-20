@@ -68,25 +68,84 @@ def test_parsed_page_to_json_round_trip() -> None:
 
 
 def test_document_valid() -> None:
-    doc = Document(doc_id="d1", source_file="a.pdf", pages=(_make_page(),))
+    doc = Document(
+        doc_id="d1",
+        source_file="a.pdf",
+        source_path="data/a.pdf",
+        total_pages=1,
+        pages=(_make_page(),),
+    )
     assert doc.doc_id == "d1"
     assert doc.source_file == "a.pdf"
+    assert doc.source_path == "data/a.pdf"
+    assert doc.total_pages == 1
     assert doc.pages == (_make_page(),)
 
 
 def test_document_rejects_empty_doc_id() -> None:
     with pytest.raises(ValueError, match="doc_id"):
-        Document(doc_id="", source_file="a.pdf", pages=(_make_page(),))
+        Document(
+            doc_id="",
+            source_file="a.pdf",
+            source_path="data/a.pdf",
+            total_pages=1,
+            pages=(_make_page(),),
+        )
 
 
 def test_document_rejects_empty_source_file() -> None:
     with pytest.raises(ValueError, match="source_file"):
-        Document(doc_id="d1", source_file="", pages=(_make_page(),))
+        Document(
+            doc_id="d1",
+            source_file="",
+            source_path="data/a.pdf",
+            total_pages=1,
+            pages=(_make_page(),),
+        )
+
+
+def test_document_rejects_empty_source_path() -> None:
+    with pytest.raises(ValueError, match="source_path"):
+        Document(
+            doc_id="d1",
+            source_file="a.pdf",
+            source_path="",
+            total_pages=1,
+            pages=(_make_page(),),
+        )
+
+
+def test_document_rejects_invalid_total_pages() -> None:
+    with pytest.raises(ValueError, match="total_pages"):
+        Document(
+            doc_id="d1",
+            source_file="a.pdf",
+            source_path="data/a.pdf",
+            total_pages=0,
+            pages=(_make_page(),),
+        )
 
 
 def test_document_rejects_empty_pages() -> None:
     with pytest.raises(ValueError, match="pages"):
-        Document(doc_id="d1", source_file="a.pdf", pages=())
+        Document(
+            doc_id="d1",
+            source_file="a.pdf",
+            source_path="data/a.pdf",
+            total_pages=1,
+            pages=(),
+        )
+
+
+def test_document_rejects_total_pages_mismatch() -> None:
+    with pytest.raises(ValueError, match="total_pages"):
+        Document(
+            doc_id="d1",
+            source_file="a.pdf",
+            source_path="data/a.pdf",
+            total_pages=2,
+            pages=(_make_page(),),
+        )
 
 
 def test_document_rejects_mismatched_page_doc_id() -> None:
@@ -94,6 +153,8 @@ def test_document_rejects_mismatched_page_doc_id() -> None:
         Document(
             doc_id="d1",
             source_file="a.pdf",
+            source_path="data/a.pdf",
+            total_pages=1,
             pages=(_make_page(doc_id="other"),),
         )
 
@@ -103,6 +164,8 @@ def test_document_rejects_mismatched_page_source_file() -> None:
         Document(
             doc_id="d1",
             source_file="a.pdf",
+            source_path="data/a.pdf",
+            total_pages=1,
             pages=(_make_page(source_file="other.pdf"),),
         )
 
@@ -112,6 +175,8 @@ def test_document_rejects_non_contiguous_pages() -> None:
         Document(
             doc_id="d1",
             source_file="a.pdf",
+            source_path="data/a.pdf",
+            total_pages=1,
             pages=(_make_page(page_number=1),),
         )
 
@@ -120,6 +185,8 @@ def test_document_to_dict() -> None:
     doc = Document(
         doc_id="d1",
         source_file="a.pdf",
+        source_path="data/a.pdf",
+        total_pages=2,
         pages=(
             _make_page(page_number=0, text="page one"),
             _make_page(page_number=1, text="page two"),
@@ -128,6 +195,8 @@ def test_document_to_dict() -> None:
     result = doc.to_dict()
     assert result["doc_id"] == "d1"
     assert result["source_file"] == "a.pdf"
+    assert result["source_path"] == "data/a.pdf"
+    assert result["total_pages"] == 2
     assert result["pages"] == [
         {
             "doc_id": "d1",
@@ -145,14 +214,28 @@ def test_document_to_dict() -> None:
 
 
 def test_document_to_json_round_trip() -> None:
-    doc = Document(doc_id="d1", source_file="a.pdf", pages=(_make_page(),))
+    doc = Document(
+        doc_id="d1",
+        source_file="a.pdf",
+        source_path="data/a.pdf",
+        total_pages=1,
+        pages=(_make_page(),),
+    )
     parsed = json.loads(doc.to_json())
     assert parsed["doc_id"] == "d1"
+    assert parsed["source_path"] == "data/a.pdf"
+    assert parsed["total_pages"] == 1
     assert parsed["pages"][0]["text"] == "hello"
 
 
 def test_document_is_immutable() -> None:
-    doc = Document(doc_id="d1", source_file="a.pdf", pages=(_make_page(),))
+    doc = Document(
+        doc_id="d1",
+        source_file="a.pdf",
+        source_path="data/a.pdf",
+        total_pages=1,
+        pages=(_make_page(),),
+    )
     with pytest.raises(Exception):
         doc.doc_id = "other"  # type: ignore[misc]
 

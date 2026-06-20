@@ -20,11 +20,11 @@ typecheck:
 
 # Runs the test suite
 test:
-	pytest
+	PYTHONPATH=src pytest
 
 # Runs tests with a modest coverage threshold
 coverage:
-	pytest --cov=rag --cov-report=term-missing --cov-fail-under=60
+	PYTHONPATH=src pytest --cov=rag --cov-report=term-missing --cov-fail-under=60
 
 # Runs the Sprint 0 no-op end-to-end pipeline
 run-noop:

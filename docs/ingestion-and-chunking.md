@@ -10,6 +10,22 @@ chunking, storage, indexing, retrieval, and citations.
 - Parsed pages may contain empty text so ingestion can preserve PDF page count.
 - Chunks must contain non-empty text.
 - Every parsed page and chunk must preserve `doc_id` and `source_file`.
+- Parsed documents also preserve `source_path` and `total_pages`.
+
+## PDF Parser
+
+The Sprint 1 parser uses `pypdf` for text-based PDFs. It does not perform OCR,
+normalization, chunking, or table reconstruction.
+
+Parser behavior:
+
+- `doc_id` is the first 16 hex characters of the PDF file's SHA-256 hash.
+- `source_file` is the PDF filename.
+- `source_path` is the input path serialized as a string.
+- `total_pages` is the number of PDF pages reported by the reader.
+- Empty pages are preserved with `text == ""`.
+- Missing, unreadable, directory, or corrupt inputs raise an explicit parser
+  error.
 
 ## Parsed Document Example
 
@@ -17,6 +33,8 @@ chunking, storage, indexing, retrieval, and citations.
 {
   "doc_id": "policy-2026",
   "source_file": "policy.pdf",
+  "source_path": "data/raw/policy.pdf",
+  "total_pages": 2,
   "pages": [
     {
       "doc_id": "policy-2026",
