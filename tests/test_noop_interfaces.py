@@ -39,6 +39,8 @@ def _make_chunks() -> tuple[Chunk, ...]:
             source_file="a.pdf",
             page=0,
             chunk_index=0,
+            char_start=0,
+            char_end=5,
             text="alpha",
         ),
         Chunk(
@@ -47,6 +49,8 @@ def _make_chunks() -> tuple[Chunk, ...]:
             source_file="b.pdf",
             page=1,
             chunk_index=0,
+            char_start=0,
+            char_end=4,
             text="beta",
         ),
         Chunk(
@@ -55,6 +59,8 @@ def _make_chunks() -> tuple[Chunk, ...]:
             source_file="c.pdf",
             page=2,
             chunk_index=0,
+            char_start=0,
+            char_end=5,
             text="gamma",
         ),
     )

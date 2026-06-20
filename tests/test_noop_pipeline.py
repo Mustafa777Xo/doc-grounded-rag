@@ -53,6 +53,10 @@ def test_documents_to_noop_chunks_preserves_traceability() -> None:
     )
     assert tuple(chunk.source_file for chunk in chunks) == ("a.pdf", "b.pdf")
     assert all(chunk.page == 0 for chunk in chunks)
+    assert all(chunk.char_start == 0 for chunk in chunks)
+    assert tuple(chunk.char_end for chunk in chunks) == tuple(
+        len(chunk.text) for chunk in chunks
+    )
 
 
 def test_noop_pipeline_runs_from_mock_input_to_mock_cited_answer() -> None:
