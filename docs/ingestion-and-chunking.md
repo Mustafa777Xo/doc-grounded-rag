@@ -27,6 +27,24 @@ Parser behavior:
 - Missing, unreadable, directory, or corrupt inputs raise an explicit parser
   error.
 
+## Text Normalization
+
+Normalization runs after parsing and before chunking. It is deterministic and
+returns a new document with the same metadata and page order.
+
+Default normalization behavior:
+
+- normalizes line endings
+- collapses repeated spaces and tabs
+- collapses repeated blank lines
+- joins wrapped paragraph lines
+- preserves headings, list items, and paragraph breaks
+- collapses repeated separator runs
+- preserves non-empty low-quality pages instead of reducing them to empty text
+
+Normalization does not perform OCR, semantic cleanup, chunking, or table
+reconstruction.
+
 ## Parsed Document Example
 
 ```json
