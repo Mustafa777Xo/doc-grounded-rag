@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from rag.chunking.ids import ChunkIdCollisionError
 from rag.chunking.splitter import ChunkingPolicy, ChunkSplitter
 from rag.config import Settings
 from rag.contracts.document import Document, ParsedPage
@@ -45,7 +46,7 @@ def test_split_short_page_returns_one_chunk_with_exact_metadata() -> None:
 
     assert len(chunks) == 1
     chunk = chunks[0]
-    assert chunk.chunk_id == "doc-1-p0-c0"
+    assert chunk.chunk_id.startswith("doc-1-p0-s0-e11-")
     assert chunk.doc_id == "doc-1"
     assert chunk.source_file == "policy.pdf"
     assert chunk.page == 0
@@ -105,16 +106,45 @@ def test_split_document_prefers_paragraph_boundaries() -> None:
     )
 
 
-def test_chunk_ids_and_indexes_are_global_and_ordered() -> None:
+def test_chunk_ids_and_indexes_are_stable_global_and_ordered() -> None:
     document = _make_document(("Page one text.", "Page two text."))
-    chunks = ChunkSplitter().split_document(document)
+    splitter = ChunkSplitter()
+    chunks = splitter.split_document(document)
 
-    assert tuple(chunk.chunk_id for chunk in chunks) == (
-        "doc-1-p0-c0",
-        "doc-1-p1-c1",
-    )
+    assert chunks == splitter.split_document(document)
+    assert chunks[0].chunk_id.startswith("doc-1-p0-s0-e14-")
+    assert chunks[1].chunk_id.startswith("doc-1-p1-s0-e14-")
+    assert chunks[0].chunk_id != chunks[1].chunk_id
     assert tuple(chunk.chunk_index for chunk in chunks) == (0, 1)
     assert tuple(chunk.page for chunk in chunks) == (0, 1)
+
+
+class CollidingChunkIdGenerator:
+    def generate(
+        self,
+        *,
+        doc_id: str,
+        page: int,
+        char_start: int,
+        char_end: int,
+        text: str,
+    ) -> str:
+        _ = doc_id
+        _ = page
+        _ = char_start
+        _ = char_end
+        _ = text
+        return "duplicate"
+
+
+def test_splitter_surfaces_chunk_id_collisions() -> None:
+    splitter = ChunkSplitter(
+        policy=ChunkingPolicy(target_size=8, overlap=0, hard_max_size=12),
+        id_generator=CollidingChunkIdGenerator(),
+    )
+
+    with pytest.raises(ChunkIdCollisionError, match="duplicate"):
+        splitter.split_document(_make_document(("alpha beta gamma delta",)))
 
 
 def test_chunking_policy_from_settings() -> None:

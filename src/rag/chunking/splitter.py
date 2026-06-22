@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from rag.chunking.ids import ChunkIdFactory, ChunkIdGenerator, ensure_unique_chunk_ids
 from rag.config import Settings
 from rag.contracts.chunk import Chunk
 from rag.contracts.document import Document, ParsedPage
@@ -41,8 +42,15 @@ class ChunkingPolicy:
 
 
 class ChunkSplitter:
-    def __init__(self, policy: ChunkingPolicy | None = None) -> None:
+    def __init__(
+        self,
+        policy: ChunkingPolicy | None = None,
+        id_generator: ChunkIdFactory | None = None,
+    ) -> None:
         self._policy = policy if policy is not None else ChunkingPolicy()
+        self._id_generator = (
+            id_generator if id_generator is not None else ChunkIdGenerator()
+        )
 
     def split_document(self, document: Document) -> tuple[Chunk, ...]:
         chunks: list[Chunk] = []
@@ -50,10 +58,15 @@ class ChunkSplitter:
             page_spans = self._split_page(page)
             for span in page_spans:
                 chunk_index = len(chunks)
+                text = page.text[span.start : span.end]
                 chunks.append(
                     Chunk(
-                        chunk_id=(
-                            f"{document.doc_id}-p{page.page_number}-c{chunk_index}"
+                        chunk_id=self._id_generator.generate(
+                            doc_id=document.doc_id,
+                            page=page.page_number,
+                            char_start=span.start,
+                            char_end=span.end,
+                            text=text,
                         ),
                         doc_id=document.doc_id,
                         source_file=document.source_file,
@@ -61,10 +74,12 @@ class ChunkSplitter:
                         chunk_index=chunk_index,
                         char_start=span.start,
                         char_end=span.end,
-                        text=page.text[span.start : span.end],
+                        text=text,
                     )
                 )
-        return tuple(chunks)
+        result = tuple(chunks)
+        ensure_unique_chunk_ids(result)
+        return result
 
     def _split_page(self, page: ParsedPage) -> tuple[TextSpan, ...]:
         if page.text.strip() == "":

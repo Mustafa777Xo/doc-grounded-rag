@@ -65,8 +65,13 @@ Chunking behavior:
 - prefers paragraph boundaries when they fit the policy
 - splits very long paragraphs with deterministic character windows
 - applies overlap only within the same page
-- uses deterministic placeholder IDs until stable fingerprint IDs are added in
-  S1-05
+- generates stable content-aware chunk IDs
+
+Chunk ID behavior:
+
+- format: `{doc_id}-p{page}-s{char_start}-e{char_end}-{hash12}`
+- hash input includes `doc_id`, page, span, and exact chunk text
+- collisions within one splitter output fail explicitly
 
 ## Parsed Document Example
 
@@ -97,7 +102,7 @@ Chunking behavior:
 
 ```json
 {
-  "chunk_id": "policy-2026-p0-c0",
+  "chunk_id": "policy-2026-p0-s0-e47-a1b2c3d4e5f6",
   "doc_id": "policy-2026",
   "source_file": "policy.pdf",
   "page": 0,
@@ -110,7 +115,7 @@ Chunking behavior:
 
 ```json
 {
-  "chunk_id": "policy-2026-p1-c1",
+  "chunk_id": "policy-2026-p1-s0-e41-f6e5d4c3b2a1",
   "doc_id": "policy-2026",
   "source_file": "policy.pdf",
   "page": 1,
