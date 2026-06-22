@@ -1,4 +1,7 @@
-.PHONY: install format lint typecheck test coverage check clean run-noop
+.PHONY: install format lint typecheck test coverage check clean run-noop ingest
+
+OUTPUT ?= data/processed/chunks/chunks.jsonl
+MODE ?= overwrite
 
 # Installs the package in editable mode along with dev tools
 install:
@@ -29,6 +32,10 @@ coverage:
 # Runs the Sprint 0 no-op end-to-end pipeline
 run-noop:
 	PYTHONPATH=src python -m rag.pipeline.orchestrator
+
+# Runs the Sprint 1 PDF ingestion pipeline
+ingest:
+	PYTHONPATH=src python -m rag.pipeline.ingest --input "$(INPUT)" --output "$(OUTPUT)" --mode "$(MODE)"
 
 # The ultimate pre-commit / CI gate: runs all verifications
 check: lint typecheck coverage
