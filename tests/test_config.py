@@ -14,6 +14,8 @@ def test_config_loads_with_required_field() -> None:
     assert settings.chunk_size == 512
     assert settings.chunk_overlap == 64
     assert settings.chunk_hard_max == 768
+    assert settings.chunk_output_path == Path("data/processed/chunks/chunks.jsonl")
+    assert settings.chunk_write_mode == "overwrite"
     assert settings.profile == "dev"
 
 
@@ -52,3 +54,22 @@ def test_config_test_profile() -> None:
 def test_config_docs_dir_is_path_type() -> None:
     settings = Settings(docs_dir=Path("some/path"))
     assert isinstance(settings.docs_dir, Path)
+
+
+def test_config_chunk_storage_settings() -> None:
+    settings = Settings(
+        docs_dir=Path("data/pdfs"),
+        chunk_output_path=Path("artifacts/chunks.jsonl"),
+        chunk_write_mode="safe_append",
+    )
+
+    assert settings.chunk_output_path == Path("artifacts/chunks.jsonl")
+    assert settings.chunk_write_mode == "safe_append"
+
+
+def test_config_invalid_chunk_write_mode_raises() -> None:
+    with pytest.raises(ValidationError):
+        Settings(
+            docs_dir=Path("data/pdfs"),
+            chunk_write_mode="append",  # type: ignore[arg-type]
+        )

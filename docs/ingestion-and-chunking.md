@@ -73,6 +73,23 @@ Chunk ID behavior:
 - hash input includes `doc_id`, page, span, and exact chunk text
 - collisions within one splitter output fail explicitly
 
+## Chunk Storage
+
+Chunk storage writes one schema-valid chunk record per JSONL line. The initial
+artifact format is DB-compatible and intentionally flat so each line can map to
+one future index or database row.
+
+Stored record behavior:
+
+- schema version: `chunk.v1`
+- output path default: `data/processed/chunks/chunks.jsonl`
+- write mode default: `overwrite`
+- supported write modes: `overwrite`, `safe_append`
+- `overwrite` replaces the artifact with the current validated batch
+- `safe_append` validates existing records and fails if any `chunk_id` would be
+  duplicated
+- malformed existing JSONL files fail explicitly before appending
+
 ## Parsed Document Example
 
 ```json
@@ -102,6 +119,7 @@ Chunk ID behavior:
 
 ```json
 {
+  "schema_version": "chunk.v1",
   "chunk_id": "policy-2026-p0-s0-e47-a1b2c3d4e5f6",
   "doc_id": "policy-2026",
   "source_file": "policy.pdf",
@@ -115,6 +133,7 @@ Chunk ID behavior:
 
 ```json
 {
+  "schema_version": "chunk.v1",
   "chunk_id": "policy-2026-p1-s0-e41-f6e5d4c3b2a1",
   "doc_id": "policy-2026",
   "source_file": "policy.pdf",
@@ -127,5 +146,4 @@ Chunk ID behavior:
 ```
 
 These fields are the minimum traceability data required for downstream citation
-metadata. Later ingestion and chunking tickets will implement parsing,
-normalization, deterministic chunk boundaries, stable IDs, and persistence.
+metadata and Sprint 2 indexing.

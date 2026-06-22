@@ -18,6 +18,8 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=512, gt=0)
     chunk_overlap: int = Field(default=64, ge=0)
     chunk_hard_max: int = Field(default=768, gt=0)
+    chunk_output_path: Path = Path("data/processed/chunks/chunks.jsonl")
+    chunk_write_mode: Literal["overwrite", "safe_append"] = "overwrite"
     embedding_model: str = Field(default="all-MiniLM-L6-v2")
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     profile: Literal["dev", "test"] = "dev"
