@@ -53,6 +53,61 @@ def test_ingestion_pipeline_processes_one_pdf_end_to_end(tmp_path: Path) -> None
     assert all(record["source_file"] == "sample_policy.pdf" for record in records)
 
 
+def test_ingestion_pipeline_output_matches_deterministic_snapshot(
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "chunks.jsonl"
+    pipeline = IngestionPipeline(
+        writer=JsonlChunkWriter(output_path),
+        correlation_id_factory=lambda: "ingest-snapshot-test",
+    )
+
+    summary = pipeline.run(FIXTURES_DIR / "sample_policy.pdf")
+
+    assert summary.succeeded is True
+    assert _read_jsonl(output_path) == [
+        {
+            "char_end": 47,
+            "char_start": 0,
+            "chunk_id": "12300f777421a63b-p0-s0-e47-42e1bbda7461",
+            "chunk_index": 0,
+            "doc_id": "12300f777421a63b",
+            "page": 0,
+            "schema_version": "chunk.v1",
+            "source_file": "sample_policy.pdf",
+            "text": "Policy coverage applies to full-time employees.",
+        },
+        {
+            "char_end": 36,
+            "char_start": 0,
+            "chunk_id": "12300f777421a63b-p1-s0-e36-a980f854f11d",
+            "chunk_index": 1,
+            "doc_id": "12300f777421a63b",
+            "page": 1,
+            "schema_version": "chunk.v1",
+            "source_file": "sample_policy.pdf",
+            "text": "Claims must be filed within 30 days.",
+        },
+    ]
+
+
+def test_ingestion_pipeline_overwrite_is_byte_stable_across_repeated_runs(
+    tmp_path: Path,
+) -> None:
+    output_path = tmp_path / "chunks.jsonl"
+    pipeline = IngestionPipeline(
+        writer=JsonlChunkWriter(output_path, write_mode="overwrite"),
+        correlation_id_factory=lambda: "ingest-repeat-test",
+    )
+
+    first_summary = pipeline.run(FIXTURES_DIR / "sample_policy.pdf")
+    first_output = output_path.read_text(encoding="utf-8")
+    second_summary = pipeline.run(FIXTURES_DIR / "sample_policy.pdf")
+
+    assert first_summary.to_dict() == second_summary.to_dict()
+    assert output_path.read_text(encoding="utf-8") == first_output
+
+
 def test_ingestion_pipeline_emits_structured_stage_logs(tmp_path: Path) -> None:
     stream = io.StringIO()
     logger = get_logger(name=f"rag.ingest.test.{uuid.uuid4().hex}", stream=stream)

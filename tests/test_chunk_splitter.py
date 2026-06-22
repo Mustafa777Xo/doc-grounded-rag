@@ -106,6 +106,52 @@ def test_split_document_prefers_paragraph_boundaries() -> None:
     )
 
 
+def test_split_document_boundaries_match_regression_snapshot() -> None:
+    text = (
+        "Alpha beta gamma delta epsilon zeta.\n\n"
+        "Eta theta iota kappa lambda mu.\n\n"
+        "Nu xi omicron pi rho sigma tau."
+    )
+    splitter = ChunkSplitter(
+        policy=ChunkingPolicy(target_size=38, overlap=5, hard_max_size=50)
+    )
+
+    chunks = splitter.split_document(_make_document((text,)))
+
+    assert [chunk.to_dict() for chunk in chunks] == [
+        {
+            "chunk_id": "doc-1-p0-s0-e36-bd5b2ae8f607",
+            "doc_id": "doc-1",
+            "source_file": "policy.pdf",
+            "page": 0,
+            "chunk_index": 0,
+            "char_start": 0,
+            "char_end": 36,
+            "text": "Alpha beta gamma delta epsilon zeta.",
+        },
+        {
+            "chunk_id": "doc-1-p0-s31-e69-8f2c625e812c",
+            "doc_id": "doc-1",
+            "source_file": "policy.pdf",
+            "page": 0,
+            "chunk_index": 1,
+            "char_start": 31,
+            "char_end": 69,
+            "text": "zeta.\n\nEta theta iota kappa lambda mu.",
+        },
+        {
+            "chunk_id": "doc-1-p0-s64-e102-797344ccec47",
+            "doc_id": "doc-1",
+            "source_file": "policy.pdf",
+            "page": 0,
+            "chunk_index": 2,
+            "char_start": 64,
+            "char_end": 102,
+            "text": "a mu.\n\nNu xi omicron pi rho sigma tau.",
+        },
+    ]
+
+
 def test_chunk_ids_and_indexes_are_stable_global_and_ordered() -> None:
     document = _make_document(("Page one text.", "Page two text."))
     splitter = ChunkSplitter()

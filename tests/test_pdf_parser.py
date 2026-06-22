@@ -29,6 +29,16 @@ def test_pdf_parser_returns_page_ordered_document_metadata() -> None:
     assert "Claims must be filed" in document.pages[1].text
 
 
+def test_pdf_parser_is_deterministic_for_same_pdf() -> None:
+    source_path = FIXTURES_DIR / "sample_policy.pdf"
+    parser = PdfParser()
+
+    first = parser.parse(source_path)
+    second = parser.parse(source_path)
+
+    assert first.to_dict() == second.to_dict()
+
+
 def test_pdf_parser_preserves_empty_pages() -> None:
     source_path = FIXTURES_DIR / "sample_empty_page.pdf"
     document = PdfParser().parse(source_path)

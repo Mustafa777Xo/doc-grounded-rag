@@ -45,6 +45,19 @@ def test_chunk_id_generation_is_stable_for_same_inputs() -> None:
     assert first == second
 
 
+def test_chunk_id_generation_matches_regression_value() -> None:
+    assert (
+        ChunkIdGenerator().generate(
+            doc_id="doc-1",
+            page=0,
+            char_start=0,
+            char_end=47,
+            text="Policy coverage applies to full-time employees.",
+        )
+        == "doc-1-p0-s0-e47-69b2f7eeb3b2"
+    )
+
+
 def test_chunk_id_changes_when_text_changes() -> None:
     generator = ChunkIdGenerator()
     first = generator.generate(

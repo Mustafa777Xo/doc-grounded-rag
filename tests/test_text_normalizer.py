@@ -37,6 +37,28 @@ def test_normalize_text_normalizes_line_breaks_and_whitespace() -> None:
     assert TextNormalizer().normalize_text(text) == "Alpha beta Gamma delta Omega"
 
 
+def test_normalize_noisy_extracted_text_matches_regression_output() -> None:
+    text = (
+        "BENEFITS\r\n"
+        "Coverage   applies\r\n"
+        "to full-time employees.\f\n\n"
+        "-----\n"
+        "1. Submit   claim\r\n"
+        "2. Wait\tfor approval\n\n\n"
+        "Questions:\rContact HR"
+    )
+
+    assert (
+        TextNormalizer().normalize_text(text) == "BENEFITS\n"
+        "Coverage applies to full-time employees.\n\n"
+        "---\n"
+        "1. Submit claim\n"
+        "2. Wait for approval\n\n"
+        "Questions:\n"
+        "Contact HR"
+    )
+
+
 def test_normalize_text_preserves_paragraph_breaks() -> None:
     text = "First paragraph\ncontinues here.\n\n\nSecond paragraph\ncontinues."
 
