@@ -45,6 +45,29 @@ Default normalization behavior:
 Normalization does not perform OCR, semantic cleanup, chunking, or table
 reconstruction.
 
+## Chunking
+
+Chunking runs after normalization and converts parsed pages into page-local
+chunks. It is deterministic for the same normalized document and policy.
+
+Default chunking policy:
+
+- target size: `512` characters
+- overlap: `64` characters
+- hard max size: `768` characters
+
+Chunking behavior:
+
+- processes pages in document order
+- skips empty and whitespace-only pages
+- keeps chunks within one source page
+- preserves `doc_id`, `source_file`, page number, and character spans
+- prefers paragraph boundaries when they fit the policy
+- splits very long paragraphs with deterministic character windows
+- applies overlap only within the same page
+- uses deterministic placeholder IDs until stable fingerprint IDs are added in
+  S1-05
+
 ## Parsed Document Example
 
 ```json
