@@ -97,15 +97,17 @@ class NoOpPipeline:
 def documents_to_noop_chunks(documents: Sequence[Document]) -> tuple[Chunk, ...]:
     chunks: list[Chunk] = []
     for document in documents:
-        for page_index, text in enumerate(document.pages):
+        for page in document.pages:
             chunks.append(
                 Chunk(
-                    chunk_id=f"{document.doc_id}-chunk-{page_index}",
+                    chunk_id=f"{document.doc_id}-chunk-{page.page_number}",
                     doc_id=document.doc_id,
                     source_file=document.source_file,
-                    page=page_index,
-                    chunk_index=page_index,
-                    text=text,
+                    page=page.page_number,
+                    chunk_index=page.page_number,
+                    char_start=0,
+                    char_end=len(page.text),
+                    text=page.text,
                 )
             )
     return tuple(chunks)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Protocol, Sequence
 
-from rag.contracts.document import Document
+from rag.contracts.document import Document, ParsedPage
 
 
 class Ingestor(Protocol):
@@ -13,11 +13,24 @@ class Ingestor(Protocol):
 class NoOpIngestor:
     def ingest(self, sources: Sequence[Path]) -> tuple[Document, ...]:
         ordered = tuple(sorted(sources, key=lambda p: str(p)))
-        return tuple(
-            Document(
-                doc_id=f"doc-{i}",
-                source_file=path.name,
-                pages=(f"noop page text from {path.name}",),
+        documents: list[Document] = []
+        for i, path in enumerate(ordered):
+            doc_id = f"doc-{i}"
+            text = f"noop page text from {path.name}"
+            documents.append(
+                Document(
+                    doc_id=doc_id,
+                    source_file=path.name,
+                    source_path=str(path),
+                    total_pages=1,
+                    pages=(
+                        ParsedPage(
+                            doc_id=doc_id,
+                            source_file=path.name,
+                            page_number=0,
+                            text=text,
+                        ),
+                    ),
+                )
             )
-            for i, path in enumerate(ordered)
-        )
+        return tuple(documents)

@@ -43,8 +43,9 @@ flowchart TD
 ### contracts
 Typed data models shared across all modules.
 No logic. No I/O. Pure dataclasses or Pydantic models.
-- Document: source_file, pages, raw text
-- Chunk: doc_id, source_file, page, chunk_id, text
+- ParsedPage: doc_id, source_file, page_number, text
+- Document: doc_id, source_file, parsed pages
+- Chunk: doc_id, source_file, page, chunk_id, chunk_index, char span, text
 - RetrievalResult: chunk, score, retrieval_method
 - AnswerWithCitations: answer_text, citations[]
 
