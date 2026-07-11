@@ -16,6 +16,12 @@ from rag.index.vector_store import (
     VectorStoreError,
     VectorStoreSchemaError,
 )
+from rag.index.writer import (
+    IndexSyncError,
+    IndexSyncSummary,
+    VectorIndexWriter,
+    build_vector_index_row,
+)
 
 __all__ = [
     "Indexer",
@@ -33,4 +39,8 @@ __all__ = [
     "VectorStore",
     "VectorStoreError",
     "VectorStoreSchemaError",
+    "IndexSyncError",
+    "IndexSyncSummary",
+    "VectorIndexWriter",
+    "build_vector_index_row",
 ]

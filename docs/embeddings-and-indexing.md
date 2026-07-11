@@ -140,6 +140,27 @@ Query behavior:
 Schema, model, or dimension changes require a new collection or a rebuild of the
 existing collection.
 
+## Idempotent Index Sync
+
+The index writer syncs canonical Sprint 1 `Chunk` objects into the vector store.
+It is a library flow; the command-line pipeline is added separately.
+
+Sync behavior:
+
+- bootstraps the target collection schema before reading or writing rows
+- compares current chunk hashes against indexed chunk state by `chunk_id`
+- embeds and upserts only `new` and `changed` chunks
+- skips `unchanged` chunks so repeated runs produce zero writes
+- deletes indexed rows whose chunks are no longer present
+- returns a summary with `new`, `changed`, `unchanged`, `deleted`, `written`,
+  `removed`, and `error` counts
+
+Every written row preserves the full chunk text and citation metadata. Failures
+raise an index sync error with stage context such as `bootstrap`, `detect`,
+`embed`, `build_rows`, `upsert`, or `delete`. When available, failures also
+include the affected `chunk_id` and a partial summary with `error_count`
+incremented.
+
 ## Vector Index Row Example
 
 ```json
