@@ -78,6 +78,32 @@ Batching behavior:
 - returns `EmbeddingRecord` outputs in the same order as the prepared inputs
 - lets provider and service failures bubble with chunk context
 
+## Content Hashing And Change Detection
+
+The `content_hash` tracks canonical chunk text for incremental indexing:
+
+```json
+{
+  "chunk_schema_version": "chunk.v1",
+  "text": "Eligibility rules apply to full-time employees."
+}
+```
+
+The payload is serialized with sorted JSON keys and hashed with SHA-256. Stored
+hashes use the format `sha256:<hex>`.
+
+Change detection compares current chunks with indexed chunk state by `chunk_id`:
+
+- `new`: chunk exists now but was not indexed before
+- `changed`: chunk exists now and its current hash differs from the indexed hash
+- `unchanged`: chunk exists now and its current hash matches the indexed hash
+- `deleted`: indexed chunk is missing from the current chunk set
+
+The hash intentionally excludes citation metadata and embedding model metadata.
+Metadata validation is handled by vector index row contracts and later sync
+checks. Model name, model version, and embedding dimension changes are handled
+by schema/index compatibility checks rather than this text hash.
+
 ## Vector Index Row Example
 
 ```json
@@ -120,8 +146,4 @@ Rebuild or reindex vectors when any of these values change:
 - embedding schema version
 - vector index schema version
 - chunk schema version
-- chunk text or citation metadata that changes the content hash
-
-Content hashing is implemented in a later Sprint 2 ticket. These contracts only
-require that the hash is present and consistent across the embedding record and
-index metadata.
+- chunk text changes that change the content hash
