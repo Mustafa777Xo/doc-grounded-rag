@@ -55,6 +55,29 @@ Future provider adapters must preserve:
 - explicit embedding dimension
 - finite numeric vector values
 
+## Text Preparation And Batching
+
+Text preparation runs before embedding. It enforces a character budget for the
+embedding input and records whether the input was changed before calling the
+provider.
+
+Default embedding preparation policy:
+
+- max chars: `4096`
+- batch size: `32`
+- oversized behavior: truncate to `max_chars`
+
+Truncation is explicit in the prepared request metadata. The `content_hash`
+remains tied to the canonical chunk text, not the truncated embedding input, so
+incremental reindexing can still detect source chunk changes consistently.
+
+Batching behavior:
+
+- preserves input order
+- executes fixed-size batches using the configured batch size
+- returns `EmbeddingRecord` outputs in the same order as the prepared inputs
+- lets provider and service failures bubble with chunk context
+
 ## Vector Index Row Example
 
 ```json

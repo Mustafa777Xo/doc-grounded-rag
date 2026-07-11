@@ -16,6 +16,8 @@ def test_config_loads_with_required_field() -> None:
     assert settings.chunk_hard_max == 768
     assert settings.chunk_output_path == Path("data/processed/chunks/chunks.jsonl")
     assert settings.chunk_write_mode == "overwrite"
+    assert settings.embedding_batch_size == 32
+    assert settings.embedding_max_chars == 4096
     assert settings.profile == "dev"
 
 
@@ -73,3 +75,21 @@ def test_config_invalid_chunk_write_mode_raises() -> None:
             docs_dir=Path("data/pdfs"),
             chunk_write_mode="append",  # type: ignore[arg-type]
         )
+
+
+def test_config_embedding_batch_settings() -> None:
+    settings = Settings(
+        docs_dir=Path("data/pdfs"),
+        embedding_batch_size=8,
+        embedding_max_chars=1024,
+    )
+
+    assert settings.embedding_batch_size == 8
+    assert settings.embedding_max_chars == 1024
+
+
+def test_config_invalid_embedding_batch_settings_raise() -> None:
+    with pytest.raises(ValidationError):
+        Settings(docs_dir=Path("data/pdfs"), embedding_batch_size=0)
+    with pytest.raises(ValidationError):
+        Settings(docs_dir=Path("data/pdfs"), embedding_max_chars=0)
