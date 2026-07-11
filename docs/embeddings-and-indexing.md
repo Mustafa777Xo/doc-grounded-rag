@@ -30,6 +30,31 @@ embedding generation and vector indexing.
 }
 ```
 
+## Embedding Service
+
+The embedding service is provider-agnostic. Callers pass an embedding request
+with `chunk_id`, chunk `text`, and `content_hash`. The service calls a provider,
+validates the returned vector shape, and returns an `EmbeddingRecord`.
+
+Service behavior:
+
+- `embed_one` embeds one text and returns one `EmbeddingRecord`
+- `embed_batch` embeds requests in input order
+- provider-specific response shapes are hidden from callers
+- provider failures are wrapped with chunk context
+- provider `model_name`, `model_version`, and `dim` are copied into each record
+
+Sprint 2 starts with a deterministic local hash provider. It is dependency-free
+and suitable for testing index writes, idempotency, and schema compatibility. It
+is not the final semantic-quality target for retrieval.
+
+Future provider adapters must preserve:
+
+- stable `model_name`
+- stable `model_version`
+- explicit embedding dimension
+- finite numeric vector values
+
 ## Vector Index Row Example
 
 ```json
