@@ -18,6 +18,8 @@ def test_config_loads_with_required_field() -> None:
     assert settings.chunk_write_mode == "overwrite"
     assert settings.embedding_batch_size == 32
     assert settings.embedding_max_chars == 4096
+    assert settings.vector_index_path == Path("data/index/vector_store.sqlite")
+    assert settings.vector_collection_name == "default"
     assert settings.profile == "dev"
 
 
@@ -93,3 +95,19 @@ def test_config_invalid_embedding_batch_settings_raise() -> None:
         Settings(docs_dir=Path("data/pdfs"), embedding_batch_size=0)
     with pytest.raises(ValidationError):
         Settings(docs_dir=Path("data/pdfs"), embedding_max_chars=0)
+
+
+def test_config_vector_index_settings() -> None:
+    settings = Settings(
+        docs_dir=Path("data/pdfs"),
+        vector_index_path=Path("artifacts/vector.sqlite"),
+        vector_collection_name="policies",
+    )
+
+    assert settings.vector_index_path == Path("artifacts/vector.sqlite")
+    assert settings.vector_collection_name == "policies"
+
+
+def test_config_invalid_vector_collection_name_raises() -> None:
+    with pytest.raises(ValidationError):
+        Settings(docs_dir=Path("data/pdfs"), vector_collection_name="")

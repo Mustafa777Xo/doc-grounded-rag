@@ -104,6 +104,42 @@ Metadata validation is handled by vector index row contracts and later sync
 checks. Model name, model version, and embedding dimension changes are handled
 by schema/index compatibility checks rather than this text hash.
 
+## Local Vector Store
+
+Sprint 2 uses a SQLite-backed local vector store. It is dependency-free,
+persistent across runs, and intended for MVP-scale development and smoke tests.
+
+Collection schema includes:
+
+- collection name
+- vector index schema version
+- embedding schema version
+- chunk schema version
+- model name
+- model version
+- embedding dimension
+
+Bootstrap behavior:
+
+- creates parent directories and database tables from empty state
+- repeated bootstrap with the same schema is idempotent
+- incompatible schema changes fail clearly
+
+Stored rows are keyed by `chunk_id`. Upsert replaces the existing row for the
+same chunk instead of creating duplicates. Delete removes rows by chunk ID.
+
+Query behavior:
+
+- validates query vector dimension against the collection dimension
+- computes cosine similarity in Python over stored vectors
+- returns deterministic top-k results sorted by score descending, then
+  `chunk_id`
+- preserves the full `VectorIndexRow` so retrieval can access chunk text and
+  citation metadata
+
+Schema, model, or dimension changes require a new collection or a rebuild of the
+existing collection.
+
 ## Vector Index Row Example
 
 ```json
