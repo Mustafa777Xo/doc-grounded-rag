@@ -2,12 +2,21 @@
 from __future__ import annotations
 
 import json
+import math
 
 import pytest
 
 from rag.contracts.answer import AnswerWithCitations, Citation
 from rag.contracts.chunk import Chunk
 from rag.contracts.document import Document, ParsedPage
+from rag.contracts.indexing import (
+    CHUNK_SCHEMA_VERSION,
+    EMBEDDING_SCHEMA_VERSION,
+    VECTOR_INDEX_SCHEMA_VERSION,
+    EmbeddingRecord,
+    VectorIndexMetadata,
+    VectorIndexRow,
+)
 from rag.contracts.retrieval import RetrievalResult
 
 # ── ParsedPage ────────────────────────────────────────────────────────────────
@@ -472,3 +481,199 @@ def test_retrieval_result_to_json_round_trip() -> None:
     assert parsed["score"] == 0.91
     assert parsed["retrieval_method"] == "hybrid"
     assert parsed["chunk"]["chunk_id"] == "c1"
+
+
+# ── Embedding and index contracts ────────────────────────────────────────────
+
+
+def _make_embedding_record(
+    *,
+    schema_version: str = EMBEDDING_SCHEMA_VERSION,
+    chunk_id: str = "chunk-1",
+    vector: tuple[float, ...] = (0.1, 0.2, 0.3),
+    dim: int = 3,
+    model_name: str = "local-hash-embedder",
+    model_version: str = "v1",
+    content_hash: str = "sha256:abc123",
+) -> EmbeddingRecord:
+    return EmbeddingRecord(
+        schema_version=schema_version,
+        chunk_id=chunk_id,
+        vector=vector,
+        dim=dim,
+        model_name=model_name,
+        model_version=model_version,
+        content_hash=content_hash,
+    )
+
+
+def _make_vector_metadata(
+    *,
+    chunk_id: str = "chunk-1",
+    doc_id: str = "doc-1",
+    source_file: str = "policy.pdf",
+    page: int = 0,
+    chunk_index: int = 0,
+    char_start: int = 0,
+    char_end: int = 11,
+    text: str = "hello world",
+    chunk_schema_version: str = CHUNK_SCHEMA_VERSION,
+    content_hash: str = "sha256:abc123",
+) -> VectorIndexMetadata:
+    return VectorIndexMetadata(
+        chunk_id=chunk_id,
+        doc_id=doc_id,
+        source_file=source_file,
+        page=page,
+        chunk_index=chunk_index,
+        char_start=char_start,
+        char_end=char_end,
+        text=text,
+        chunk_schema_version=chunk_schema_version,
+        content_hash=content_hash,
+    )
+
+
+def _make_vector_row(
+    *,
+    schema_version: str = VECTOR_INDEX_SCHEMA_VERSION,
+    row_id: str = "chunk-1",
+    embedding: EmbeddingRecord | None = None,
+    metadata: VectorIndexMetadata | None = None,
+    created_at: str = "2026-07-11T00:00:00Z",
+    updated_at: str = "2026-07-11T00:00:00Z",
+) -> VectorIndexRow:
+    return VectorIndexRow(
+        schema_version=schema_version,
+        row_id=row_id,
+        embedding=embedding if embedding is not None else _make_embedding_record(),
+        metadata=metadata if metadata is not None else _make_vector_metadata(),
+        created_at=created_at,
+        updated_at=updated_at,
+    )
+
+
+def test_embedding_record_valid() -> None:
+    record = _make_embedding_record()
+    assert record.schema_version == EMBEDDING_SCHEMA_VERSION
+    assert record.chunk_id == "chunk-1"
+    assert record.vector == (0.1, 0.2, 0.3)
+    assert record.dim == 3
+
+
+def test_embedding_record_rejects_invalid_schema_version() -> None:
+    with pytest.raises(ValueError, match="schema_version"):
+        _make_embedding_record(schema_version="embedding.v0")
+
+
+def test_embedding_record_rejects_empty_required_fields() -> None:
+    with pytest.raises(ValueError, match="chunk_id"):
+        _make_embedding_record(chunk_id="")
+    with pytest.raises(ValueError, match="model_name"):
+        _make_embedding_record(model_name="")
+    with pytest.raises(ValueError, match="model_version"):
+        _make_embedding_record(model_version="")
+    with pytest.raises(ValueError, match="content_hash"):
+        _make_embedding_record(content_hash="")
+
+
+def test_embedding_record_rejects_invalid_vector_and_dim() -> None:
+    with pytest.raises(ValueError, match="vector"):
+        _make_embedding_record(vector=(), dim=0)
+    with pytest.raises(ValueError, match="dim"):
+        _make_embedding_record(dim=0)
+    with pytest.raises(ValueError, match="dim"):
+        _make_embedding_record(vector=(0.1, 0.2), dim=3)
+    with pytest.raises(ValueError, match="finite"):
+        _make_embedding_record(vector=(0.1, math.inf), dim=2)
+
+
+def test_embedding_record_to_json_round_trip() -> None:
+    parsed = json.loads(_make_embedding_record().to_json())
+    assert parsed["schema_version"] == EMBEDDING_SCHEMA_VERSION
+    assert parsed["chunk_id"] == "chunk-1"
+    assert parsed["vector"] == [0.1, 0.2, 0.3]
+    assert parsed["dim"] == 3
+
+
+def test_vector_index_metadata_valid() -> None:
+    metadata = _make_vector_metadata()
+    assert metadata.chunk_schema_version == CHUNK_SCHEMA_VERSION
+    assert metadata.source_file == "policy.pdf"
+    assert metadata.text == "hello world"
+
+
+def test_vector_index_metadata_rejects_empty_required_fields() -> None:
+    with pytest.raises(ValueError, match="chunk_id"):
+        _make_vector_metadata(chunk_id="")
+    with pytest.raises(ValueError, match="doc_id"):
+        _make_vector_metadata(doc_id="")
+    with pytest.raises(ValueError, match="source_file"):
+        _make_vector_metadata(source_file="")
+    with pytest.raises(ValueError, match="text"):
+        _make_vector_metadata(text="")
+    with pytest.raises(ValueError, match="content_hash"):
+        _make_vector_metadata(content_hash="")
+
+
+def test_vector_index_metadata_rejects_invalid_location_and_span() -> None:
+    with pytest.raises(ValueError, match="page"):
+        _make_vector_metadata(page=-1)
+    with pytest.raises(ValueError, match="chunk_index"):
+        _make_vector_metadata(chunk_index=-1)
+    with pytest.raises(ValueError, match="char_start"):
+        _make_vector_metadata(char_start=-1)
+    with pytest.raises(ValueError, match="char_end"):
+        _make_vector_metadata(char_start=4, char_end=4, text="same")
+    with pytest.raises(ValueError, match="text length"):
+        _make_vector_metadata(char_start=0, char_end=20, text="short")
+
+
+def test_vector_index_metadata_rejects_invalid_chunk_schema() -> None:
+    with pytest.raises(ValueError, match="chunk_schema_version"):
+        _make_vector_metadata(chunk_schema_version="chunk.v0")
+
+
+def test_vector_index_metadata_to_json_round_trip() -> None:
+    parsed = json.loads(_make_vector_metadata().to_json())
+    assert parsed["chunk_id"] == "chunk-1"
+    assert parsed["doc_id"] == "doc-1"
+    assert parsed["chunk_schema_version"] == CHUNK_SCHEMA_VERSION
+
+
+def test_vector_index_row_valid() -> None:
+    row = _make_vector_row()
+    assert row.schema_version == VECTOR_INDEX_SCHEMA_VERSION
+    assert row.row_id == "chunk-1"
+    assert row.embedding.chunk_id == "chunk-1"
+    assert row.metadata.chunk_id == "chunk-1"
+
+
+def test_vector_index_row_rejects_invalid_schema_and_empty_fields() -> None:
+    with pytest.raises(ValueError, match="schema_version"):
+        _make_vector_row(schema_version="vector_index.v0")
+    with pytest.raises(ValueError, match="row_id"):
+        _make_vector_row(row_id="")
+    with pytest.raises(ValueError, match="created_at"):
+        _make_vector_row(created_at="")
+    with pytest.raises(ValueError, match="updated_at"):
+        _make_vector_row(updated_at="")
+
+
+def test_vector_index_row_rejects_mismatched_ids_and_hashes() -> None:
+    with pytest.raises(ValueError, match="embedding chunk_id"):
+        _make_vector_row(row_id="other")
+    with pytest.raises(ValueError, match="metadata chunk_id"):
+        _make_vector_row(metadata=_make_vector_metadata(chunk_id="other"))
+    with pytest.raises(ValueError, match="content_hash"):
+        _make_vector_row(
+            metadata=_make_vector_metadata(content_hash="sha256:different")
+        )
+
+
+def test_vector_index_row_to_json_round_trip() -> None:
+    parsed = json.loads(_make_vector_row().to_json())
+    assert parsed["schema_version"] == VECTOR_INDEX_SCHEMA_VERSION
+    assert parsed["row_id"] == "chunk-1"
+    assert parsed["embedding"]["schema_version"] == EMBEDDING_SCHEMA_VERSION
+    assert parsed["metadata"]["chunk_schema_version"] == CHUNK_SCHEMA_VERSION
