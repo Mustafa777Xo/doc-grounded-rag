@@ -137,6 +137,19 @@ make run-noop
 Run the Sprint 0 no-op pipeline from mock input to mock cited answer.
 
 ```sh
+make ingest INPUT=data/pdfs OUTPUT=data/processed/chunks/chunks.jsonl MODE=overwrite
+```
+
+Run the Sprint 1 PDF ingestion pipeline and write chunk artifacts.
+
+```sh
+make embed-index CHUNKS=data/processed/chunks/chunks.jsonl INDEX=data/index/vector_store.sqlite COLLECTION=default
+```
+
+Run the Sprint 2 embed+index pipeline from chunk artifacts into the local vector
+index.
+
+```sh
 make clean
 ```
 

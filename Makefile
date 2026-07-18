@@ -1,7 +1,10 @@
-.PHONY: install format lint typecheck test coverage check clean run-noop ingest
+.PHONY: install format lint typecheck test coverage check clean run-noop ingest embed-index
 
 OUTPUT ?= data/processed/chunks/chunks.jsonl
 MODE ?= overwrite
+CHUNKS ?= data/processed/chunks/chunks.jsonl
+INDEX ?= data/index/vector_store.sqlite
+COLLECTION ?= default
 
 # Installs the package in editable mode along with dev tools
 install:
@@ -36,6 +39,10 @@ run-noop:
 # Runs the Sprint 1 PDF ingestion pipeline
 ingest:
 	PYTHONPATH=src python -m rag.pipeline.ingest --input "$(INPUT)" --output "$(OUTPUT)" --mode "$(MODE)"
+
+# Runs the Sprint 2 embed+index pipeline
+embed-index:
+	PYTHONPATH=src python -m rag.pipeline.embed_index_pipeline --chunks "$(CHUNKS)" --index "$(INDEX)" --collection "$(COLLECTION)"
 
 # The ultimate pre-commit / CI gate: runs all verifications
 check: lint typecheck coverage

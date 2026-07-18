@@ -161,6 +161,22 @@ raise an index sync error with stage context such as `bootstrap`, `detect`,
 include the affected `chunk_id` and a partial summary with `error_count`
 incremented.
 
+## Embed And Index Command
+
+Build or re-sync the local vector index from Sprint 1 chunk artifacts:
+
+```sh
+make embed-index CHUNKS=data/processed/chunks/chunks.jsonl INDEX=data/index/vector_store.sqlite COLLECTION=default
+```
+
+The command loads and validates the JSONL chunk artifact, embeds only new or
+changed chunks, upserts vector rows, deletes stale rows, prints one JSON summary
+to stdout, and emits structured `load_chunks` and `sync_index` stage logs to
+stderr.
+
+Rerunning the same command against unchanged chunks should report zero writes
+and unchanged rows in the sync summary.
+
 ## Vector Index Row Example
 
 ```json
