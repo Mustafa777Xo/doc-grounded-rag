@@ -3,6 +3,82 @@
 Sprint 2 defines the contracts that hand Sprint 1 chunk artifacts into
 embedding generation and vector indexing.
 
+## Local Operations
+
+Use these commands to build and reindex a local SQLite vector index from a fresh
+checkout. The examples use `/private/tmp` so the smoke run does not create
+working data inside the repository.
+
+Install dependencies first:
+
+```sh
+make install
+```
+
+Build a chunk artifact from the sample PDF:
+
+```sh
+make ingest INPUT=tests/fixtures/pdfs/sample_policy.pdf OUTPUT=/private/tmp/doc-grounded-rag-s2-docs-chunks.jsonl MODE=overwrite
+```
+
+Build the vector index:
+
+```sh
+make embed-index CHUNKS=/private/tmp/doc-grounded-rag-s2-docs-chunks.jsonl INDEX=/private/tmp/doc-grounded-rag-s2-docs-vector.sqlite COLLECTION=sprint2_docs
+```
+
+Expected summary fields from the first index build:
+
+```json
+{
+  "succeeded": true,
+  "sync": {
+    "new": 2,
+    "changed": 0,
+    "unchanged": 0,
+    "deleted": 0,
+    "written": 2,
+    "removed": 0,
+    "errors": 0
+  }
+}
+```
+
+Reindex the same chunks by rerunning the same command:
+
+```sh
+make embed-index CHUNKS=/private/tmp/doc-grounded-rag-s2-docs-chunks.jsonl INDEX=/private/tmp/doc-grounded-rag-s2-docs-vector.sqlite COLLECTION=sprint2_docs
+```
+
+Expected reindex behavior:
+
+```json
+{
+  "succeeded": true,
+  "sync": {
+    "new": 0,
+    "changed": 0,
+    "unchanged": 2,
+    "deleted": 0,
+    "written": 0,
+    "removed": 0,
+    "errors": 0
+  }
+}
+```
+
+Run the query smoke checks:
+
+```sh
+PYTHONPATH=src pytest tests/test_index_reader.py -q
+```
+
+Run the full quality gate before merging:
+
+```sh
+make check
+```
+
 ## Contract Rules
 
 - Embedding records use schema version `embedding.v1`.
@@ -47,6 +123,15 @@ Service behavior:
 Sprint 2 starts with a deterministic local hash provider. It is dependency-free
 and suitable for testing index writes, idempotency, and schema compatibility. It
 is not the final semantic-quality target for retrieval.
+
+Current local provider policy:
+
+- provider: `HashEmbeddingProvider`
+- model name: `local-hash-embedder`
+- model version: `v1`
+- default embedding dimension: `16`
+- purpose: local smoke tests, deterministic indexing tests, and offline
+  development
 
 Future provider adapters must preserve:
 
@@ -108,6 +193,8 @@ by schema/index compatibility checks rather than this text hash.
 
 Sprint 2 uses a SQLite-backed local vector store. It is dependency-free,
 persistent across runs, and intended for MVP-scale development and smoke tests.
+The store scans vectors in Python, so it is not intended for large production
+corpora.
 
 Collection schema includes:
 
@@ -177,6 +264,15 @@ stderr.
 Rerunning the same command against unchanged chunks should report zero writes
 and unchanged rows in the sync summary.
 
+Command inputs:
+
+- `CHUNKS`: Sprint 1 JSONL chunk artifact
+- `INDEX`: SQLite vector index path
+- `COLLECTION`: logical collection name inside the index
+
+The command writes one JSON summary to stdout and structured logs to stderr.
+Pipeline stages are `load_chunks` and `sync_index`.
+
 ## Semantic Read Smoke
 
 The minimal semantic reader embeds a query with the same provider family used for
@@ -236,3 +332,44 @@ Rebuild or reindex vectors when any of these values change:
 - vector index schema version
 - chunk schema version
 - chunk text changes that change the content hash
+
+Use the same collection when chunk text changes but the model and schema stay
+compatible. The sync flow will update changed chunks, insert new chunks, skip
+unchanged chunks, and delete stale chunks.
+
+Use a new collection name or rebuild the existing index when any stored
+collection schema value changes:
+
+- model name
+- model version
+- embedding dimension
+- embedding schema version
+- vector index schema version
+- chunk schema version
+
+Schema mismatches fail clearly during index bootstrap. They should not be worked
+around by appending vectors with a different dimension or model version into the
+same collection.
+
+## Operational Limits And Troubleshooting
+
+Default embedding preparation limits:
+
+- max chars per embedded text: `4096`
+- batch size: `32`
+- oversized text behavior: truncate before embedding
+
+The `content_hash` always tracks canonical chunk text, not truncated embedding
+input. This keeps incremental reindexing stable even when long chunks are
+shortened for embedding.
+
+Common failures:
+
+- Missing chunk artifact: rerun `make ingest` or pass the correct `CHUNKS` path.
+- Malformed JSONL: regenerate the chunk artifact from Sprint 1 ingestion.
+- Duplicate `chunk_id`: fix chunk generation before indexing; duplicates are
+  rejected to prevent duplicate vectors.
+- Missing or incompatible index schema: rebuild the index or use a new
+  `COLLECTION`.
+- Query smoke failure from a missing index: run `make embed-index` before the
+  reader smoke test.
