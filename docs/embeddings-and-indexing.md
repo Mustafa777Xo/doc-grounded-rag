@@ -177,6 +177,22 @@ stderr.
 Rerunning the same command against unchanged chunks should report zero writes
 and unchanged rows in the sync summary.
 
+## Semantic Read Smoke
+
+The minimal semantic reader embeds a query with the same provider family used for
+indexing, queries the vector store, and returns existing `RetrievalResult`
+contracts for Sprint 3 consumers.
+
+Reader behavior:
+
+- returns `retrieval_method` as `semantic`
+- uses vector similarity scores from the store
+- reconstructs `Chunk` metadata from stored vector row metadata
+- preserves citation fields: `source_file`, `page`, `chunk_id`, and
+  `chunk_index`
+- fails clearly for invalid limits, query embedding failures, or unavailable
+  indexes
+
 ## Vector Index Row Example
 
 ```json

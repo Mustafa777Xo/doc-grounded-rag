@@ -1,4 +1,5 @@
 from rag.index.interfaces import Indexer, NoOpIndexer
+from rag.index.reader import SemanticIndexReader, SemanticIndexReaderError
 from rag.index.schema import VectorStoreSchema
 from rag.index.sync import (
     ChangeDetectionSummary,
@@ -26,6 +27,8 @@ from rag.index.writer import (
 __all__ = [
     "Indexer",
     "NoOpIndexer",
+    "SemanticIndexReader",
+    "SemanticIndexReaderError",
     "VectorStoreSchema",
     "ChangeDetectionSummary",
     "ChunkChange",
