@@ -1,0 +1,162 @@
+{
+  "bm25": {
+    "license": "MIT",
+    "package": "bm25s",
+    "smoke": {
+      "query": "claims filed within days",
+      "top_score": 1.1090354919433594,
+      "top_text": "Claims must be filed within 30 days."
+    },
+    "stemming": false,
+    "version": "0.3.10"
+  },
+  "compatibility": [
+    {
+      "architecture": "arm64",
+      "packages": {
+        "bm25s": "0.3.10",
+        "numpy": "2.4.6",
+        "scipy": "1.17.1",
+        "sentence-transformers": "5.6.0",
+        "torch": "2.7.1",
+        "transformers": "4.57.6"
+      },
+      "python": "3.11.13",
+      "validation": {
+        "bm25_exact_term_passage_ranked_first": true,
+        "embedding_shape": [
+          2,
+          384
+        ],
+        "embedding_vectors_finite_and_normalized": true,
+        "offline_execution": true,
+        "reranker_relevant_passage_ranked_first": true,
+        "reranker_scores_finite": true,
+        "torch_threads": 4
+      }
+    },
+    {
+      "architecture": "arm64",
+      "packages": {
+        "bm25s": "0.3.10",
+        "numpy": "2.5.1",
+        "scipy": "1.18.0",
+        "sentence-transformers": "5.6.0",
+        "torch": "2.7.1",
+        "transformers": "4.57.6"
+      },
+      "python": "3.12.6",
+      "validation": {
+        "bm25_exact_term_passage_ranked_first": true,
+        "embedding_shape": [
+          2,
+          384
+        ],
+        "embedding_vectors_finite_and_normalized": true,
+        "offline_execution": true,
+        "reranker_relevant_passage_ranked_first": true,
+        "reranker_scores_finite": true,
+        "torch_threads": 4
+      }
+    }
+  ],
+  "environment": {
+    "architecture": "arm64",
+    "device": "cpu",
+    "hf_home": "default-user-cache",
+    "hf_hub_offline": true,
+    "implementation": "CPython",
+    "logical_cpu_count": 8,
+    "os": "macOS-26.2-arm64-arm-64bit",
+    "packages": {
+      "bm25s": "0.3.10",
+      "numpy": "2.5.1",
+      "scipy": "1.18.0",
+      "sentence-transformers": "5.6.0",
+      "torch": "2.7.1",
+      "transformers": "4.57.6"
+    },
+    "processor": "arm",
+    "python": "3.12.6",
+    "transformers_offline": true
+  },
+  "latency": {
+    "embedding_chunk_batch": {
+      "items_per_call": 2.0,
+      "iterations": 20.0,
+      "max_ms": 4.999165998015087,
+      "mean_ms": 4.466033399512526,
+      "min_ms": 4.284958002244821,
+      "p50_ms": 4.4426669974200195,
+      "p95_ms": 4.882237149467983,
+      "throughput_items_per_second": 447.82468492472606
+    },
+    "embedding_query": {
+      "items_per_call": 1.0,
+      "iterations": 20.0,
+      "max_ms": 4.300917000364279,
+      "mean_ms": 4.078189649590058,
+      "min_ms": 3.9577919997100253,
+      "p50_ms": 4.053082999234903,
+      "p95_ms": 4.242689599232108,
+      "throughput_items_per_second": 245.20684076095395
+    },
+    "reranker_single_pair": {
+      "items_per_call": 1.0,
+      "iterations": 20.0,
+      "max_ms": 4.339125000115018,
+      "mean_ms": 4.181270900335221,
+      "min_ms": 4.116374999284744,
+      "p50_ms": 4.162146000453504,
+      "p95_ms": 4.265421148920723,
+      "throughput_items_per_second": 239.1617342755352
+    },
+    "reranker_ten_pairs": {
+      "items_per_call": 10.0,
+      "iterations": 20.0,
+      "max_ms": 10.559958001977066,
+      "mean_ms": 10.174722949705028,
+      "min_ms": 9.965124998416286,
+      "p50_ms": 10.106687499501277,
+      "p95_ms": 10.528806550064473,
+      "throughput_items_per_second": 982.827743755903
+    }
+  },
+  "models": {
+    "embedding": {
+      "dimension": 384,
+      "id": "sentence-transformers/all-MiniLM-L6-v2",
+      "license": "Apache-2.0",
+      "load_ms": 66.48287499774597,
+      "normalized": true,
+      "revision": "c9745ed1d9f207416be6d2e6f8de32d1f16199bf"
+    },
+    "reranker": {
+      "hidden_dimension": 384,
+      "id": "cross-encoder/ms-marco-MiniLM-L6-v2",
+      "license": "Apache-2.0",
+      "load_ms": 108.6780829973577,
+      "output_scores_per_pair": 1,
+      "revision": "c5ee24cb16019beea0893ab7796b1df96625c6b8"
+    }
+  },
+  "recorded_at_utc": "2026-07-28T20:15:37Z",
+  "schema_version": "s3-model-selection-benchmark.v1",
+  "validation": {
+    "bm25_exact_term_passage_ranked_first": true,
+    "embedding_shape": [
+      2,
+      384
+    ],
+    "embedding_vectors_finite_and_normalized": true,
+    "offline_execution": true,
+    "reranker_relevant_passage_ranked_first": true,
+    "reranker_scores_finite": true,
+    "torch_threads": 4
+  },
+  "workload": {
+    "chunk_count": 2,
+    "measured_iterations": 20,
+    "warmup_iterations": 3
+  }
+}
