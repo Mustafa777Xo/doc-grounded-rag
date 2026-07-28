@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     chunk_output_path: Path = Path("data/processed/chunks/chunks.jsonl")
     chunk_write_mode: Literal["overwrite", "safe_append"] = "overwrite"
     embedding_model: str = Field(default="all-MiniLM-L6-v2")
+    embedding_batch_size: int = Field(default=32, gt=0)
+    embedding_max_chars: int = Field(default=4096, gt=0)
+    vector_index_path: Path = Path("data/index/vector_store.sqlite")
+    vector_collection_name: str = Field(default="default", min_length=1)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     profile: Literal["dev", "test"] = "dev"
 

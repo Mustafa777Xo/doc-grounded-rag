@@ -22,6 +22,8 @@ Sprint 0 establishes the project foundation and no-op pipeline. The architecture
 details are documented here:
 
 - [Architecture](docs/architecture.md)
+- [Ingestion and chunking](docs/ingestion-and-chunking.md)
+- [Embeddings and indexing](docs/embeddings-and-indexing.md)
 - [Sprint 0 execution board](docs/sprints/SPRINT_0_EXECUTION_BOARD.md)
 - [ADR 0001: System boundaries](docs/decisions/0001-system-boundaries.md)
 
@@ -38,6 +40,8 @@ The target pipeline is:
 
 Sprint 0 currently provides typed contracts, interfaces, no-op adapters,
 structured logging, config loading, and a no-op end-to-end pipeline.
+Sprint 2 adds deterministic local embedding generation, idempotent vector index
+writes, and a smoke-tested semantic read path for local development.
 
 ## Quick Start
 
@@ -135,6 +139,29 @@ make run-noop
 ```
 
 Run the Sprint 0 no-op pipeline from mock input to mock cited answer.
+
+```sh
+make ingest INPUT=data/pdfs OUTPUT=data/processed/chunks/chunks.jsonl MODE=overwrite
+```
+
+Run the Sprint 1 PDF ingestion pipeline and write chunk artifacts.
+
+```sh
+make embed-index CHUNKS=data/processed/chunks/chunks.jsonl INDEX=data/index/vector_store.sqlite COLLECTION=default
+```
+
+Run the Sprint 2 embed+index pipeline from chunk artifacts into the local vector
+index.
+
+```sh
+make ingest INPUT=tests/fixtures/pdfs/sample_policy.pdf OUTPUT=/private/tmp/doc-grounded-rag-s2-docs-chunks.jsonl MODE=overwrite
+make embed-index CHUNKS=/private/tmp/doc-grounded-rag-s2-docs-chunks.jsonl INDEX=/private/tmp/doc-grounded-rag-s2-docs-vector.sqlite COLLECTION=sprint2_docs
+make embed-index CHUNKS=/private/tmp/doc-grounded-rag-s2-docs-chunks.jsonl INDEX=/private/tmp/doc-grounded-rag-s2-docs-vector.sqlite COLLECTION=sprint2_docs
+PYTHONPATH=src pytest tests/test_index_reader.py -q
+```
+
+Run a verified Sprint 2 local build, reindex, and query-smoke workflow. The
+second `make embed-index` run should report unchanged rows and zero writes.
 
 ```sh
 make clean
