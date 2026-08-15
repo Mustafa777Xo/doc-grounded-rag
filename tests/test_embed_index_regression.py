@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from rag.contracts.chunk import Chunk
+from rag.contracts.retrieval import RetrievalQuery
 from rag.embed import (
     EmbeddingBatcher,
     EmbeddingPreparationPolicy,
@@ -289,11 +290,18 @@ def test_retrieval_contract_after_reindex_preserves_required_metadata(
         embedding_service=EmbeddingService(provider=provider),
     )
 
-    payload = reader.retrieve(POLICY_TEXT, limit=1)[0].to_dict()
+    query = RetrievalQuery(
+        query_id="regression-query",
+        original_text=POLICY_TEXT,
+        normalized_text=POLICY_TEXT,
+    )
+    payload = reader.retrieve(query, limit=1)[0].to_dict()
 
-    assert set(payload) == {"chunk", "score", "retrieval_method"}
-    assert payload["retrieval_method"] == "semantic"
-    assert isinstance(payload["score"], float)
+    assert set(payload) == {"schema_version", "chunk", "scores", "sources", "rank"}
+    assert payload["sources"] == ["dense"]
+    scores = payload["scores"]
+    assert isinstance(scores, dict)
+    assert isinstance(scores["dense_score"], float)
     assert payload["chunk"] == {
         "chunk_id": "benefits-policy",
         "doc_id": "benefits-handbook",

@@ -1,34 +1,30 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Protocol, Sequence
 
-from rag.contracts.retrieval import RetrievalResult
+from rag.contracts.retrieval import RetrievalCandidate, RetrievalQuery
 
 
 class Reranker(Protocol):
     def rerank(
         self,
-        results: Sequence[RetrievalResult],
+        query: RetrievalQuery,
+        candidates: Sequence[RetrievalCandidate],
         limit: int | None = None,
-    ) -> tuple[RetrievalResult, ...]: ...
+    ) -> tuple[RetrievalCandidate, ...]: ...
 
 
 class NoOpReranker:
     def rerank(
         self,
-        results: Sequence[RetrievalResult],
+        query: RetrievalQuery,
+        candidates: Sequence[RetrievalCandidate],
         limit: int | None = None,
-    ) -> tuple[RetrievalResult, ...]:
-        ordered = tuple(
-            sorted(
-                results,
-                key=lambda item: (
-                    -item.score,
-                    item.chunk.doc_id,
-                    item.chunk.chunk_index,
-                ),
-            )
+    ) -> tuple[RetrievalCandidate, ...]:
+        _ = query
+        selected = tuple(candidates) if limit is None else tuple(candidates[:limit])
+        return tuple(
+            replace(candidate, rank=rank)
+            for rank, candidate in enumerate(selected, start=1)
         )
-        if limit is None:
-            return ordered
-        return ordered[:limit]

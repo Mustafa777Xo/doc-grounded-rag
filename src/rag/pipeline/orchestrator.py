@@ -9,6 +9,7 @@ from typing import TypeVar
 from rag.contracts.answer import AnswerWithCitations
 from rag.contracts.chunk import Chunk
 from rag.contracts.document import Document
+from rag.contracts.retrieval import RetrievalQuery
 from rag.generate.interfaces import Generator, NoOpGenerator
 from rag.index.interfaces import Indexer, NoOpIndexer
 from rag.ingest.interfaces import Ingestor, NoOpIngestor
@@ -46,6 +47,11 @@ class NoOpPipeline:
         sources: Sequence[Path],
     ) -> AnswerWithCitations:
         correlation_id = self.correlation_id_factory()
+        query = RetrievalQuery(
+            query_id=correlation_id,
+            original_text=question,
+            normalized_text=question,
+        )
 
         documents = self._run_stage(
             stage="ingest",
@@ -66,17 +72,21 @@ class NoOpPipeline:
         retrieved = self._run_stage(
             stage="retrieve",
             correlation_id=correlation_id,
-            action=lambda: retriever.retrieve(question, limit=self.retrieve_limit),
+            action=lambda: retriever.retrieve(query, limit=self.retrieve_limit),
         )
         reranked = self._run_stage(
             stage="rerank",
             correlation_id=correlation_id,
-            action=lambda: self.reranker.rerank(retrieved, limit=self.rerank_limit),
+            action=lambda: self.reranker.rerank(
+                query,
+                retrieved,
+                limit=self.rerank_limit,
+            ),
         )
         return self._run_stage(
             stage="generate",
             correlation_id=correlation_id,
-            action=lambda: self.generator.generate(question, reranked),
+            action=lambda: self.generator.generate(query, reranked),
         )
 
     def _run_stage(

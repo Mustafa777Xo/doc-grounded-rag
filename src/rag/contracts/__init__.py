@@ -9,7 +9,15 @@ from rag.contracts.indexing import (
     VectorIndexMetadata,
     VectorIndexRow,
 )
-from rag.contracts.retrieval import RetrievalResult
+from rag.contracts.retrieval import (
+    RETRIEVAL_CANDIDATE_SCHEMA_VERSION,
+    RETRIEVAL_QUERY_SCHEMA_VERSION,
+    QueryFilters,
+    RetrievalCandidate,
+    RetrievalQuery,
+    RetrieverSource,
+    ScoreProvenance,
+)
 
 __all__ = [
     "Document",
@@ -21,7 +29,13 @@ __all__ = [
     "EmbeddingRecord",
     "VectorIndexMetadata",
     "VectorIndexRow",
-    "RetrievalResult",
+    "RETRIEVAL_CANDIDATE_SCHEMA_VERSION",
+    "RETRIEVAL_QUERY_SCHEMA_VERSION",
+    "QueryFilters",
+    "RetrievalCandidate",
+    "RetrievalQuery",
+    "RetrieverSource",
+    "ScoreProvenance",
     "Citation",
     "AnswerWithCitations",
 ]

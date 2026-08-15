@@ -3,7 +3,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from rag.contracts.chunk import Chunk
-from rag.contracts.retrieval import RetrievalResult
+from rag.contracts.retrieval import (
+    RetrievalCandidate,
+    RetrievalQuery,
+    RetrieverSource,
+    ScoreProvenance,
+)
 from rag.embed import EmbeddingRequest, EmbeddingService, EmbeddingServiceError
 from rag.index.sync import ContentHasher
 from rag.index.vector_store import VectorQueryResult, VectorStore, VectorStoreError
@@ -21,12 +26,9 @@ class SemanticIndexReader:
     embedding_service: EmbeddingService
     hasher: ContentHasher = field(default_factory=ContentHasher)
 
-    def retrieve(self, query: str, limit: int = 5) -> tuple[RetrievalResult, ...]:
-        if not query:
-            raise SemanticIndexReaderError(
-                stage="embed_query",
-                message="query cannot be empty",
-            )
+    def retrieve(
+        self, query: RetrievalQuery, limit: int = 5
+    ) -> tuple[RetrievalCandidate, ...]:
         if limit <= 0:
             raise SemanticIndexReaderError(
                 stage="query_index",
@@ -34,11 +36,11 @@ class SemanticIndexReader:
             )
 
         try:
-            query_hash = self.hasher.hash_text(query)
+            query_hash = self.hasher.hash_text(query.normalized_text)
             embedding = self.embedding_service.embed_one(
                 EmbeddingRequest(
-                    chunk_id="query",
-                    text=query,
+                    chunk_id=query.query_id,
+                    text=query.normalized_text,
                     content_hash=query_hash,
                 )
             )
@@ -59,9 +61,9 @@ class SemanticIndexReader:
         return tuple(_to_retrieval_result(hit) for hit in hits)
 
 
-def _to_retrieval_result(hit: VectorQueryResult) -> RetrievalResult:
+def _to_retrieval_result(hit: VectorQueryResult) -> RetrievalCandidate:
     metadata = hit.row.metadata
-    return RetrievalResult(
+    return RetrievalCandidate(
         chunk=Chunk(
             chunk_id=metadata.chunk_id,
             doc_id=metadata.doc_id,
@@ -72,6 +74,6 @@ def _to_retrieval_result(hit: VectorQueryResult) -> RetrievalResult:
             char_end=metadata.char_end,
             text=metadata.text,
         ),
-        score=hit.score,
-        retrieval_method="semantic",
+        scores=ScoreProvenance(dense_score=hit.score),
+        sources=frozenset({RetrieverSource.DENSE}),
     )

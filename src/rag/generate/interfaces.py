@@ -3,18 +3,18 @@ from __future__ import annotations
 from typing import Protocol, Sequence
 
 from rag.contracts.answer import AnswerWithCitations, Citation
-from rag.contracts.retrieval import RetrievalResult
+from rag.contracts.retrieval import RetrievalCandidate, RetrievalQuery
 
 
 class Generator(Protocol):
     def generate(
-        self, query: str, context: Sequence[RetrievalResult]
+        self, query: RetrievalQuery, context: Sequence[RetrievalCandidate]
     ) -> AnswerWithCitations: ...
 
 
 class NoOpGenerator:
     def generate(
-        self, query: str, context: Sequence[RetrievalResult]
+        self, query: RetrievalQuery, context: Sequence[RetrievalCandidate]
     ) -> AnswerWithCitations:
         if not context:
             return AnswerWithCitations(
@@ -29,7 +29,7 @@ class NoOpGenerator:
             chunk_index=top.chunk_index,
         )
         return AnswerWithCitations(
-            answer_text=f"No-op grounded answer for query: {query}",
+            answer_text=f"No-op grounded answer for query: {query.original_text}",
             citations=(citation,),
             grounded=True,
         )

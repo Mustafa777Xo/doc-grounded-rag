@@ -276,12 +276,13 @@ Pipeline stages are `load_chunks` and `sync_index`.
 ## Semantic Read Smoke
 
 The minimal semantic reader embeds a query with the same provider family used for
-indexing, queries the vector store, and returns existing `RetrievalResult`
-contracts for Sprint 3 consumers.
+indexing, queries the vector store, and returns `RetrievalCandidate` contracts
+for Sprint 3 consumers.
 
 Reader behavior:
 
-- returns `retrieval_method` as `semantic`
+- records `dense` as the retriever source and preserves vector similarity as
+  `dense_score`
 - uses vector similarity scores from the store
 - reconstructs `Chunk` metadata from stored vector row metadata
 - preserves citation fields: `source_file`, `page`, `chunk_id`, and

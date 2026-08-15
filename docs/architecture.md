@@ -26,11 +26,11 @@ flowchart TD
 
     G --> I
 
-    I --> J["list[RetrievalResult]"]
+    I --> J["list[RetrievalCandidate]"]
 
     J --> K["rerank"]
 
-    K --> L["list[RetrievalResult]<br/>sorted by relevance"]
+    K --> L["list[RetrievalCandidate]<br/>sorted by relevance"]
 
     L --> M["generate"]
 
@@ -46,7 +46,8 @@ No logic. No I/O. Pure dataclasses or Pydantic models.
 - ParsedPage: doc_id, source_file, page_number, text
 - Document: doc_id, source_file, parsed pages
 - Chunk: doc_id, source_file, page, chunk_id, chunk_index, char span, text
-- RetrievalResult: chunk, score, retrieval_method
+- RetrievalQuery: query id, original and normalized text, metadata filters
+- RetrievalCandidate: chunk, retriever sources, score provenance, optional rank
 - AnswerWithCitations: answer_text, citations[]
 
 ### config
@@ -77,14 +78,16 @@ Is a write-only operation at pipeline time.
 
 ### retrieve
 Given a query string, searches the index using semantic and keyword methods.
-Returns a list of RetrievalResult objects with scores.
+Returns a list of RetrievalCandidate objects with source-specific scores.
 
 ### rerank
-Given a list of RetrievalResult objects, applies cross-encoder scoring.
+Given a RetrievalQuery and list of RetrievalCandidate objects, applies
+cross-encoder scoring.
 Returns a reordered list.
 
 ### generate
-Given a list of RetrievalResult objects as context, calls the LLM.
+Given a RetrievalQuery and list of RetrievalCandidate objects as context, calls
+the LLM.
 Must only use provided context. Returns AnswerWithCitations.
 If context is insufficient, returns a no-evidence response.
 
@@ -142,9 +145,9 @@ sequenceDiagram
     Pipeline->>Index: store chunks
     Index-->>Pipeline: ok
     Pipeline->>Retrieve: search(query)
-    Retrieve-->>Pipeline: list[RetrievalResult]
+    Retrieve-->>Pipeline: list[RetrievalCandidate]
     Pipeline->>Rerank: rerank(results)
-    Rerank-->>Pipeline: list[RetrievalResult]
+    Rerank-->>Pipeline: list[RetrievalCandidate]
     Pipeline->>Generate: generate(context)
     Generate-->>Pipeline: AnswerWithCitations
     Pipeline-->>User: answer + citations

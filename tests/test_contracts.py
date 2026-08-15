@@ -17,7 +17,15 @@ from rag.contracts.indexing import (
     VectorIndexMetadata,
     VectorIndexRow,
 )
-from rag.contracts.retrieval import RetrievalResult
+from rag.contracts.retrieval import (
+    RETRIEVAL_CANDIDATE_SCHEMA_VERSION,
+    RETRIEVAL_QUERY_SCHEMA_VERSION,
+    QueryFilters,
+    RetrievalCandidate,
+    RetrievalQuery,
+    RetrieverSource,
+    ScoreProvenance,
+)
 
 # ── ParsedPage ────────────────────────────────────────────────────────────────
 
@@ -301,7 +309,7 @@ def test_chunk_is_immutable() -> None:
         chunk.text = "other"  # type: ignore[misc]
 
 
-# ── RetrievalResult ───────────────────────────────────────────────────────────
+# ── Retrieval contracts ──────────────────────────────────────────────────────
 
 
 def _make_chunk() -> Chunk:
@@ -387,18 +395,102 @@ def test_chunk_rejects_span_text_length_mismatch() -> None:
         )
 
 
-def test_retrieval_result_holds_chunk() -> None:
+def test_retrieval_candidate_holds_complete_chunk() -> None:
     chunk = _make_chunk()
-    result = RetrievalResult(chunk=chunk, score=0.87, retrieval_method="semantic")
-    assert result.chunk is chunk
-    assert result.score == 0.87
-    assert result.retrieval_method == "semantic"
+    candidate = RetrievalCandidate(
+        chunk=chunk,
+        scores=ScoreProvenance(dense_score=0.87),
+        sources=frozenset({RetrieverSource.DENSE}),
+    )
+    assert candidate.chunk is chunk
+    assert candidate.scores.dense_score == 0.87
+    assert candidate.sources == frozenset({RetrieverSource.DENSE})
 
 
-def test_retrieval_result_is_immutable() -> None:
-    result = RetrievalResult(chunk=_make_chunk(), score=0.5, retrieval_method="keyword")
+def test_retrieval_candidate_is_immutable() -> None:
+    candidate = RetrievalCandidate(
+        chunk=_make_chunk(),
+        scores=ScoreProvenance(keyword_score=0.5),
+        sources=frozenset({RetrieverSource.KEYWORD}),
+    )
     with pytest.raises(Exception):
-        result.score = 0.9  # type: ignore[misc]
+        candidate.rank = 1  # type: ignore[misc]
+
+
+def test_retrieval_query_rejects_blank_fields() -> None:
+    with pytest.raises(ValueError, match="query_id"):
+        RetrievalQuery(query_id="", original_text="query", normalized_text="query")
+    with pytest.raises(ValueError, match="original_text"):
+        RetrievalQuery(query_id="q-1", original_text=" ", normalized_text="query")
+    with pytest.raises(ValueError, match="normalized_text"):
+        RetrievalQuery(query_id="q-1", original_text="query", normalized_text=" ")
+
+
+def test_query_filters_reject_invalid_values() -> None:
+    with pytest.raises(ValueError, match="doc_ids"):
+        QueryFilters(doc_ids=frozenset({""}))
+    with pytest.raises(ValueError, match="source_files"):
+        QueryFilters(source_files=frozenset({""}))
+    with pytest.raises(ValueError, match="pages"):
+        QueryFilters(pages=frozenset({-1}))
+
+
+@pytest.mark.parametrize("invalid_score", [math.nan, math.inf, -math.inf])
+@pytest.mark.parametrize("score_name", ["dense", "keyword", "fusion", "rerank"])
+def test_score_provenance_rejects_non_finite_scores(
+    score_name: str,
+    invalid_score: float,
+) -> None:
+    with pytest.raises(ValueError, match="must be finite"):
+        _score_provenance_with(score_name, invalid_score)
+
+
+def _score_provenance_with(score_name: str, value: float) -> ScoreProvenance:
+    if score_name == "dense":
+        return ScoreProvenance(dense_score=value)
+    if score_name == "keyword":
+        return ScoreProvenance(keyword_score=value)
+    if score_name == "fusion":
+        return ScoreProvenance(dense_score=0.5, fusion_score=value)
+    return ScoreProvenance(dense_score=0.5, rerank_score=value)
+
+
+def test_score_provenance_requires_retriever_score() -> None:
+    with pytest.raises(ValueError, match="retriever score"):
+        ScoreProvenance(fusion_score=0.1)
+
+
+def test_candidate_accepts_scores_from_both_retrievers() -> None:
+    candidate = RetrievalCandidate(
+        chunk=_make_chunk(),
+        scores=ScoreProvenance(
+            dense_score=0.72,
+            keyword_score=3.4,
+            fusion_score=0.03,
+        ),
+        sources=frozenset({RetrieverSource.DENSE, RetrieverSource.KEYWORD}),
+    )
+    assert candidate.scores.dense_score == 0.72
+    assert candidate.scores.keyword_score == 3.4
+
+
+def test_candidate_rejects_inconsistent_sources_and_scores() -> None:
+    with pytest.raises(ValueError, match="dense source"):
+        RetrievalCandidate(
+            chunk=_make_chunk(),
+            scores=ScoreProvenance(dense_score=0.5),
+            sources=frozenset({RetrieverSource.KEYWORD}),
+        )
+
+
+def test_candidate_rejects_invalid_rank() -> None:
+    with pytest.raises(ValueError, match="rank"):
+        RetrievalCandidate(
+            chunk=_make_chunk(),
+            scores=ScoreProvenance(dense_score=0.5),
+            sources=frozenset({RetrieverSource.DENSE}),
+            rank=0,
+        )
 
 
 # ── AnswerWithCitations ───────────────────────────────────────────────────────
@@ -472,14 +564,53 @@ def test_chunk_to_json_round_trip() -> None:
     assert parsed["text"] == "some text"
 
 
-# ── RetrievalResult serialization ────────────────────────────────────────────
+# ── Retrieval serialization ──────────────────────────────────────────────────
 
 
-def test_retrieval_result_to_json_round_trip() -> None:
-    result = RetrievalResult(chunk=_make_chunk(), score=0.91, retrieval_method="hybrid")
-    parsed = json.loads(result.to_json())
-    assert parsed["score"] == 0.91
-    assert parsed["retrieval_method"] == "hybrid"
+def test_retrieval_query_serialization_is_canonical() -> None:
+    query = RetrievalQuery(
+        query_id="q-1",
+        original_text="  Policy coverage? ",
+        normalized_text="Policy coverage?",
+        filters=QueryFilters(
+            doc_ids=frozenset({"doc-b", "doc-a"}),
+            source_files=frozenset({"b.pdf", "a.pdf"}),
+            pages=frozenset({2, 0}),
+        ),
+    )
+    assert query.to_json() == query.to_json()
+    parsed = json.loads(query.to_json())
+    assert parsed["schema_version"] == RETRIEVAL_QUERY_SCHEMA_VERSION
+    assert parsed["filters"] == {
+        "doc_ids": ["doc-a", "doc-b"],
+        "pages": [0, 2],
+        "source_files": ["a.pdf", "b.pdf"],
+    }
+
+
+def test_reranked_candidate_serialization_is_canonical() -> None:
+    candidate = RetrievalCandidate(
+        chunk=_make_chunk(),
+        scores=ScoreProvenance(
+            dense_score=0.91,
+            keyword_score=2.4,
+            fusion_score=0.04,
+            rerank_score=7.3,
+        ),
+        sources=frozenset({RetrieverSource.KEYWORD, RetrieverSource.DENSE}),
+        rank=1,
+    )
+    assert candidate.to_json() == candidate.to_json()
+    parsed = json.loads(candidate.to_json())
+    assert parsed["schema_version"] == RETRIEVAL_CANDIDATE_SCHEMA_VERSION
+    assert parsed["scores"] == {
+        "dense_score": 0.91,
+        "fusion_score": 0.04,
+        "keyword_score": 2.4,
+        "rerank_score": 7.3,
+    }
+    assert parsed["sources"] == ["dense", "keyword"]
+    assert parsed["rank"] == 1
     assert parsed["chunk"]["chunk_id"] == "c1"
 
 

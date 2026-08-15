@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from rag.contracts.chunk import Chunk
+from rag.contracts.retrieval import RetrievalQuery, RetrieverSource
 from rag.embed import EmbeddingService, HashEmbeddingProvider
 from rag.index import SemanticIndexReader, SemanticIndexReaderError, SQLiteVectorStore
 from rag.pipeline.embed_index_pipeline import build_embed_index_pipeline
@@ -52,6 +53,14 @@ def _build_reader(
     )
 
 
+def _query(text: str) -> RetrievalQuery:
+    return RetrievalQuery(
+        query_id="query-1",
+        original_text=f"  {text}  ",
+        normalized_text=text,
+    )
+
+
 def test_semantic_index_reader_smoke_query_returns_relevant_hit(
     tmp_path: Path,
 ) -> None:
@@ -82,12 +91,16 @@ def test_semantic_index_reader_smoke_query_returns_relevant_hit(
         embedding_service=EmbeddingService(provider=provider),
     )
 
-    results = reader.retrieve(target_text, limit=2)
+    results = reader.retrieve(_query(target_text), limit=2)
 
     assert len(results) == 2
     assert results[0].chunk.chunk_id == "benefits-policy"
-    assert results[0].retrieval_method == "semantic"
-    assert results[0].score > results[1].score
+    assert results[0].sources == frozenset({RetrieverSource.DENSE})
+    first_score = results[0].scores.dense_score
+    second_score = results[1].scores.dense_score
+    assert first_score is not None
+    assert second_score is not None
+    assert first_score > second_score
 
 
 def test_semantic_index_reader_preserves_citation_metadata(
@@ -110,7 +123,7 @@ def test_semantic_index_reader_preserves_citation_metadata(
     result = SemanticIndexReader(
         store=SQLiteVectorStore(index_path),
         embedding_service=EmbeddingService(provider=provider),
-    ).retrieve(text, limit=1)[0]
+    ).retrieve(_query(text), limit=1)[0]
 
     assert result.chunk.to_dict() == {
         "chunk_id": "claims-policy",
@@ -145,7 +158,7 @@ def test_semantic_index_reader_result_contract_shape_is_stable(
         embedding_service=EmbeddingService(provider=provider),
     )
 
-    payload = json.loads(reader.retrieve(text, limit=1)[0].to_json())
+    payload = json.loads(reader.retrieve(_query(text), limit=1)[0].to_json())
 
     assert payload["chunk"] == {
         "chunk_id": "eligibility",
@@ -157,15 +170,21 @@ def test_semantic_index_reader_result_contract_shape_is_stable(
         "char_end": len(text),
         "text": text,
     }
-    assert payload["score"] == pytest.approx(1.0)
-    assert payload["retrieval_method"] == "semantic"
+    assert payload["scores"] == {
+        "dense_score": pytest.approx(1.0),
+        "fusion_score": None,
+        "keyword_score": None,
+        "rerank_score": None,
+    }
+    assert payload["sources"] == ["dense"]
+    assert payload["rank"] is None
 
 
 def test_semantic_index_reader_rejects_invalid_limit(tmp_path: Path) -> None:
     reader = _build_reader(index_path=tmp_path / "missing.sqlite")
 
     with pytest.raises(SemanticIndexReaderError, match="limit"):
-        reader.retrieve("query", limit=0)
+        reader.retrieve(_query("query"), limit=0)
 
 
 def test_semantic_index_reader_wraps_missing_store_with_query_context(
@@ -174,17 +193,6 @@ def test_semantic_index_reader_wraps_missing_store_with_query_context(
     reader = _build_reader(index_path=tmp_path / "missing.sqlite")
 
     with pytest.raises(SemanticIndexReaderError, match="query_index") as exc_info:
-        reader.retrieve("query", limit=1)
+        reader.retrieve(_query("query"), limit=1)
 
     assert exc_info.value.stage == "query_index"
-
-
-def test_semantic_index_reader_wraps_empty_query_with_embed_context(
-    tmp_path: Path,
-) -> None:
-    reader = _build_reader(index_path=tmp_path / "missing.sqlite")
-
-    with pytest.raises(SemanticIndexReaderError, match="embed_query") as exc_info:
-        reader.retrieve("", limit=1)
-
-    assert exc_info.value.stage == "embed_query"

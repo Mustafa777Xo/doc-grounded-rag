@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from rag.contracts.chunk import Chunk
-from rag.contracts.retrieval import RetrievalResult
+from rag.contracts.retrieval import RetrievalCandidate, RetrievalQuery
 from rag.generate.interfaces import NoOpGenerator
 from rag.index.interfaces import NoOpIndexer
 from rag.ingest.interfaces import NoOpIngestor
@@ -99,7 +99,9 @@ class FailingRetriever:
     def __init__(self, _: Sequence[Chunk]) -> None:
         return None
 
-    def retrieve(self, query: str, limit: int = 5) -> tuple[RetrievalResult, ...]:
+    def retrieve(
+        self, query: RetrievalQuery, limit: int = 5
+    ) -> tuple[RetrievalCandidate, ...]:
         _ = query
         _ = limit
         raise RuntimeError("mock retrieval failed")
