@@ -9,13 +9,13 @@ from typing import TypeVar
 from rag.contracts.answer import AnswerWithCitations
 from rag.contracts.chunk import Chunk
 from rag.contracts.document import Document
-from rag.contracts.retrieval import RetrievalQuery
 from rag.generate.interfaces import Generator, NoOpGenerator
 from rag.index.interfaces import Indexer, NoOpIndexer
 from rag.ingest.interfaces import Ingestor, NoOpIngestor
 from rag.logging import get_logger, new_correlation_id, stage_transition
 from rag.rerank.interfaces import NoOpReranker, Reranker
 from rag.retrieve.interfaces import NoOpRetriever, Retriever
+from rag.retrieve.normalization import QueryNormalizer
 
 T = TypeVar("T")
 
@@ -33,6 +33,7 @@ class NoOpPipeline:
     retriever_factory: RetrieverFactory
     reranker: Reranker
     generator: Generator
+    query_normalizer: QueryNormalizer = field(default_factory=QueryNormalizer)
     retrieve_limit: int = 5
     rerank_limit: int | None = None
     correlation_id_factory: Callable[[], str] = new_correlation_id
@@ -47,10 +48,9 @@ class NoOpPipeline:
         sources: Sequence[Path],
     ) -> AnswerWithCitations:
         correlation_id = self.correlation_id_factory()
-        query = RetrievalQuery(
+        query = self.query_normalizer.normalize(
             query_id=correlation_id,
             original_text=question,
-            normalized_text=question,
         )
 
         documents = self._run_stage(

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from rag.contracts.chunk import Chunk
 from rag.contracts.retrieval import (
+    QueryFilters,
     RetrievalCandidate,
     RetrievalQuery,
     RetrieverSource,
@@ -50,7 +51,11 @@ class SemanticIndexReader:
             ) from exc
 
         try:
-            hits = self.store.query(embedding.vector, limit=limit)
+            hits = self.store.query(
+                embedding.vector,
+                limit=limit,
+                filters=query.filters,
+            )
         except VectorStoreError as exc:
             raise RetrievalError(
                 stage="dense",
@@ -59,7 +64,22 @@ class SemanticIndexReader:
                 hint="Verify the vector index path, collection, and schema.",
             ) from exc
 
-        return tuple(_to_retrieval_result(hit) for hit in hits)
+        try:
+            eligible_hits = (
+                hit for hit in hits if _matches_filters(hit, query.filters)
+            )
+            ordered_hits = sorted(
+                eligible_hits,
+                key=lambda hit: (-hit.score, hit.row.metadata.chunk_id),
+            )[:limit]
+            return tuple(_to_retrieval_result(hit) for hit in ordered_hits)
+        except ValueError as exc:
+            raise RetrievalError(
+                stage="dense",
+                query_id=query.query_id,
+                message=f"invalid dense retrieval result: {exc}",
+                hint="Verify stored vectors, scores, and candidate metadata.",
+            ) from exc
 
 
 def _to_retrieval_result(hit: VectorQueryResult) -> RetrievalCandidate:
@@ -77,4 +97,13 @@ def _to_retrieval_result(hit: VectorQueryResult) -> RetrievalCandidate:
         ),
         scores=ScoreProvenance(dense_score=hit.score),
         sources=frozenset({RetrieverSource.DENSE}),
+    )
+
+
+def _matches_filters(hit: VectorQueryResult, filters: QueryFilters) -> bool:
+    metadata = hit.row.metadata
+    return (
+        (not filters.doc_ids or metadata.doc_id in filters.doc_ids)
+        and (not filters.source_files or metadata.source_file in filters.source_files)
+        and (not filters.pages or metadata.page in filters.pages)
     )

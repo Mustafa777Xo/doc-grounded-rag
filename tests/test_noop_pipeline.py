@@ -71,6 +71,28 @@ def test_noop_pipeline_runs_from_mock_input_to_mock_cited_answer() -> None:
     assert "No-op grounded answer" in answer.answer_text
 
 
+def test_noop_pipeline_constructs_a_normalized_retrieval_query() -> None:
+    queries: list[RetrievalQuery] = []
+
+    class RecordingRetriever(NoOpRetriever):
+        def retrieve(
+            self, query: RetrievalQuery, limit: int = 5
+        ) -> tuple[RetrievalCandidate, ...]:
+            queries.append(query)
+            return super().retrieve(query, limit=limit)
+
+    pipeline = _build_pipeline(retriever_factory=RecordingRetriever)
+
+    pipeline.run(
+        question="  WHAT\tDoes the POLICY Say?  ",
+        sources=(Path("mock-company-handbook.pdf"),),
+    )
+
+    assert len(queries) == 1
+    assert queries[0].original_text == "  WHAT\tDoes the POLICY Say?  "
+    assert queries[0].normalized_text == "what does the policy say?"
+
+
 def test_noop_pipeline_logs_each_stage_start_finish_and_duration() -> None:
     stream = io.StringIO()
     logger = get_logger(name=f"rag.pipeline.test.{uuid.uuid4().hex}", stream=stream)

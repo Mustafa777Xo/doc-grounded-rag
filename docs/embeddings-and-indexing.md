@@ -293,14 +293,19 @@ for Sprint 3 consumers.
 
 Reader behavior:
 
+- embeds deterministic normalized query text rather than the original display
+  text
+- applies document ID, source filename, and page filters before top-k scoring
 - records `dense` as the retriever source and preserves vector similarity as
   `dense_score`
 - uses vector similarity scores from the store
+- orders equal scores by `chunk_id`
 - reconstructs `Chunk` metadata from stored vector row metadata
 - preserves citation fields: `source_file`, `page`, `chunk_id`, and
   `chunk_index`
 - fails clearly for invalid limits, query embedding failures, or unavailable
   indexes
+- returns no candidates for an empty collection or filters with no matching rows
 
 ## Vector Index Row Example
 

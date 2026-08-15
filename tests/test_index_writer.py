@@ -7,6 +7,7 @@ import pytest
 
 from rag.contracts.chunk import Chunk
 from rag.contracts.indexing import VectorIndexRow
+from rag.contracts.retrieval import QueryFilters
 from rag.embed import (
     EmbeddingBatcher,
     EmbeddingPreparationPolicy,
@@ -229,7 +230,9 @@ class _FailingUpsertStore:
         vector: Sequence[float],
         *,
         limit: int,
+        filters: QueryFilters | None = None,
     ) -> tuple[VectorQueryResult, ...]:
+        _ = filters
         return ()
 
     def delete(self, chunk_ids: Sequence[str]) -> int:

@@ -10,6 +10,12 @@ for retrieval. `query_id` connects results and evaluation records across stages.
 Filters are immutable sets of document IDs, source filenames, and zero-based
 page numbers. An empty set means that dimension is unrestricted.
 
+Query normalization applies NFKC Unicode normalization, Unicode `casefold()`, a
+second NFKC pass, and Unicode whitespace trimming and collapse. Punctuation is
+preserved. Query expansion and stopword removal remain disabled. Empty results
+after normalization are rejected with a `normalization`-stage retrieval error,
+while the original text remains available for display and diagnostics.
+
 ```json
 {
   "schema_version": "retrieval_query.v1",
@@ -38,6 +44,22 @@ score without treating scores from different systems as interchangeable.
 
 All present scores must be finite. A candidate must have a dense or keyword
 score, and each retriever score must agree with its corresponding source.
+
+## Dense Retrieval
+
+Dense retrieval embeds only `normalized_text` and records cosine similarity as
+`dense_score`. The requested `limit` is the dense top-k budget. Results sort by
+descending score and then ascending `chunk_id`, making equal-score order stable.
+
+Metadata filters are applied before scoring and top-k selection. Values within
+one dimension are ORed, while populated dimensions are ANDed. For example, two
+document IDs and one page match either document only on that page. Empty filter
+sets impose no restriction.
+
+A bootstrapped empty collection and a filter with no matching rows both return
+an empty candidate tuple. A missing or unbootstrapped collection remains an
+actionable `dense`-stage error. Dense retrieval does not apply a score threshold;
+a non-empty eligible collection returns its nearest neighbors up to top-k.
 
 ### Dense-Only Candidate
 

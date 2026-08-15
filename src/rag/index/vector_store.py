@@ -12,6 +12,7 @@ from rag.contracts.indexing import (
     VectorIndexMetadata,
     VectorIndexRow,
 )
+from rag.contracts.retrieval import QueryFilters
 from rag.index.schema import VectorStoreSchema
 from rag.index.sync import IndexedChunkState
 
@@ -29,6 +30,10 @@ class VectorQueryResult:
     row: VectorIndexRow
     score: float
 
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.score):
+            raise ValueError("score must be finite")
+
 
 class VectorStore(Protocol):
     def bootstrap_collection(self, schema: VectorStoreSchema) -> None: ...
@@ -40,6 +45,7 @@ class VectorStore(Protocol):
         vector: Sequence[float],
         *,
         limit: int,
+        filters: QueryFilters | None = None,
     ) -> tuple[VectorQueryResult, ...]: ...
 
     def delete(self, chunk_ids: Sequence[str]) -> int: ...
@@ -146,6 +152,7 @@ class SQLiteVectorStore:
         vector: Sequence[float],
         *,
         limit: int,
+        filters: QueryFilters | None = None,
     ) -> tuple[VectorQueryResult, ...]:
         if limit <= 0:
             raise ValueError("limit must be greater than zero")
@@ -157,7 +164,7 @@ class SQLiteVectorStore:
                 f"collection dim {schema.dim}"
             )
         with self._connect() as connection:
-            rows = self._load_row_payloads(connection)
+            rows = self._load_row_payloads(connection, filters=filters)
 
         results = tuple(
             VectorQueryResult(
@@ -343,16 +350,29 @@ class SQLiteVectorStore:
     def _load_row_payloads(
         self,
         connection: sqlite3.Connection,
+        *,
+        filters: QueryFilters | None = None,
     ) -> tuple[VectorIndexRow, ...]:
-        cursor = connection.execute(
-            """
-            SELECT row_json
-            FROM vector_index_rows
-            WHERE collection_name = ?
-            ORDER BY chunk_id
-            """,
-            (self.collection_name,),
+        clauses = ["collection_name = ?"]
+        parameters: list[str | int] = [self.collection_name]
+        if filters is not None and filters.doc_ids:
+            placeholders = ", ".join("?" for _ in filters.doc_ids)
+            clauses.append(f"doc_id IN ({placeholders})")
+            parameters.extend(sorted(filters.doc_ids))
+        if filters is not None and filters.source_files:
+            placeholders = ", ".join("?" for _ in filters.source_files)
+            clauses.append(f"source_file IN ({placeholders})")
+            parameters.extend(sorted(filters.source_files))
+        if filters is not None and filters.pages:
+            placeholders = ", ".join("?" for _ in filters.pages)
+            clauses.append(f"page IN ({placeholders})")
+            parameters.extend(sorted(filters.pages))
+        query = (
+            "SELECT row_json FROM vector_index_rows WHERE "
+            + " AND ".join(clauses)
+            + " ORDER BY chunk_id"
         )
+        cursor = connection.execute(query, parameters)
         return tuple(_row_from_json(row[0]) for row in cursor.fetchall())
 
 

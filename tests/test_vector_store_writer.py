@@ -12,7 +12,13 @@ from rag.contracts.indexing import (
     VectorIndexMetadata,
     VectorIndexRow,
 )
-from rag.index import SQLiteVectorStore, VectorStoreSchema, VectorStoreSchemaError
+from rag.contracts.retrieval import QueryFilters
+from rag.index import (
+    SQLiteVectorStore,
+    VectorQueryResult,
+    VectorStoreSchema,
+    VectorStoreSchemaError,
+)
 
 
 def _schema(
@@ -41,6 +47,9 @@ def _row(
     model_name: str = "local-hash-embedder",
     model_version: str = "v1",
     content_hash: str | None = None,
+    doc_id: str = "doc-1",
+    source_file: str = "policy.pdf",
+    page: int = 0,
 ) -> VectorIndexRow:
     hash_value = content_hash if content_hash is not None else f"sha256:{chunk_id}"
     embedding = EmbeddingRecord(
@@ -54,9 +63,9 @@ def _row(
     )
     metadata = VectorIndexMetadata(
         chunk_id=chunk_id,
-        doc_id="doc-1",
-        source_file="policy.pdf",
-        page=0,
+        doc_id=doc_id,
+        source_file=source_file,
+        page=page,
         chunk_index=0,
         char_start=0,
         char_end=len(text),
@@ -174,6 +183,75 @@ def test_sqlite_vector_store_query_tie_order_is_deterministic(
     results = store.query((1.0, 0.0), limit=2)
 
     assert tuple(result.row.row_id for result in results) == ("chunk-a", "chunk-b")
+
+
+def test_sqlite_vector_store_filters_before_top_k(tmp_path: Path) -> None:
+    store = SQLiteVectorStore(tmp_path / "vector.sqlite")
+    store.bootstrap_collection(_schema())
+    store.upsert(
+        (
+            _row("excluded", (1.0, 0.0), doc_id="doc-excluded"),
+            _row(
+                "match-b",
+                (0.8, 0.2),
+                doc_id="doc-a",
+                source_file="a.pdf",
+                page=2,
+            ),
+            _row(
+                "match-a",
+                (0.7, 0.3),
+                doc_id="doc-b",
+                source_file="a.pdf",
+                page=2,
+            ),
+        )
+    )
+
+    results = store.query(
+        (1.0, 0.0),
+        limit=2,
+        filters=QueryFilters(
+            doc_ids=frozenset({"doc-a", "doc-b"}),
+            source_files=frozenset({"a.pdf"}),
+            pages=frozenset({2}),
+        ),
+    )
+
+    assert tuple(result.row.row_id for result in results) == ("match-b", "match-a")
+
+
+@pytest.mark.parametrize(
+    "filters",
+    [
+        QueryFilters(doc_ids=frozenset({"missing"})),
+        QueryFilters(source_files=frozenset({"missing.pdf"})),
+        QueryFilters(pages=frozenset({99})),
+    ],
+)
+def test_sqlite_vector_store_returns_no_hits_for_unmatched_filter(
+    tmp_path: Path, filters: QueryFilters
+) -> None:
+    store = SQLiteVectorStore(tmp_path / "vector.sqlite")
+    store.bootstrap_collection(_schema())
+    store.upsert((_row("chunk-a", (1.0, 0.0)),))
+
+    assert store.query((1.0, 0.0), limit=5, filters=filters) == ()
+
+
+def test_sqlite_vector_store_empty_filters_are_unrestricted(tmp_path: Path) -> None:
+    store = SQLiteVectorStore(tmp_path / "vector.sqlite")
+    store.bootstrap_collection(_schema())
+    store.upsert((_row("chunk-a", (1.0, 0.0)),))
+
+    results = store.query((1.0, 0.0), limit=5, filters=QueryFilters())
+
+    assert tuple(result.row.row_id for result in results) == ("chunk-a",)
+
+
+def test_vector_query_result_rejects_non_finite_score() -> None:
+    with pytest.raises(ValueError, match="finite"):
+        VectorQueryResult(row=_row("chunk-a", (1.0, 0.0)), score=float("nan"))
 
 
 def test_sqlite_vector_store_query_rejects_wrong_dimension(tmp_path: Path) -> None:
