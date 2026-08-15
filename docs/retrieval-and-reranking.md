@@ -122,3 +122,30 @@ score, and each retriever score must agree with its corresponding source.
 `to_json()` sorts object keys, uses compact separators, rejects non-finite JSON
 numbers, and sorts filter and source sets. Equivalent contracts therefore emit
 the same bytes regardless of set iteration order.
+
+## Retrieval Configuration
+
+The balanced CPU defaults are centralized in `rag.config.Settings` and can be
+overridden with environment variables.
+
+| Environment variable | Default | Purpose |
+| --- | ---: | --- |
+| `DENSE_TOP_K` | `20` | Dense candidates requested before fusion |
+| `KEYWORD_TOP_K` | `20` | Keyword candidates requested before fusion |
+| `FUSION_RRF_K` | `60` | Reciprocal Rank Fusion ranking constant |
+| `RERANK_CANDIDATE_COUNT` | `20` | Fused candidates sent to the reranker |
+| `FINAL_RESULT_COUNT` | `5` | Reranked candidates returned downstream |
+| `RERANKER_BATCH_SIZE` | `16` | Query-passage pairs scored per model batch |
+| `EMBEDDING_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | Dense model repository |
+| `RERANKER_MODEL` | `cross-encoder/ms-marco-MiniLM-L6-v2` | Cross-encoder repository |
+
+Startup validation requires positive values, `FINAL_RESULT_COUNT` no greater
+than `RERANK_CANDIDATE_COUNT`, and the rerank count no greater than the combined
+dense and keyword candidate budgets.
+
+## Stage-Aware Errors
+
+Retrieval failures preserve the typed query ID and one internal stage:
+`normalization`, `dense`, `keyword`, or `fusion`. Reranking failures use the
+`reranking` stage. These domain errors retain actionable hints and remain the
+cause when an outer pipeline boundary adds correlation context.

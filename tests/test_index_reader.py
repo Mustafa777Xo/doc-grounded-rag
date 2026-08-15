@@ -8,7 +8,8 @@ import pytest
 from rag.contracts.chunk import Chunk
 from rag.contracts.retrieval import RetrievalQuery, RetrieverSource
 from rag.embed import EmbeddingService, HashEmbeddingProvider
-from rag.index import SemanticIndexReader, SemanticIndexReaderError, SQLiteVectorStore
+from rag.errors import RetrievalError
+from rag.index import SemanticIndexReader, SQLiteVectorStore, VectorStoreError
 from rag.pipeline.embed_index_pipeline import build_embed_index_pipeline
 from rag.storage import ChunkRecord
 
@@ -183,8 +184,11 @@ def test_semantic_index_reader_result_contract_shape_is_stable(
 def test_semantic_index_reader_rejects_invalid_limit(tmp_path: Path) -> None:
     reader = _build_reader(index_path=tmp_path / "missing.sqlite")
 
-    with pytest.raises(SemanticIndexReaderError, match="limit"):
+    with pytest.raises(RetrievalError, match="limit") as exc_info:
         reader.retrieve(_query("query"), limit=0)
+
+    assert exc_info.value.stage == "dense"
+    assert exc_info.value.query_id == "query-1"
 
 
 def test_semantic_index_reader_wraps_missing_store_with_query_context(
@@ -192,7 +196,9 @@ def test_semantic_index_reader_wraps_missing_store_with_query_context(
 ) -> None:
     reader = _build_reader(index_path=tmp_path / "missing.sqlite")
 
-    with pytest.raises(SemanticIndexReaderError, match="query_index") as exc_info:
+    with pytest.raises(RetrievalError, match="vector store") as exc_info:
         reader.retrieve(_query("query"), limit=1)
 
-    assert exc_info.value.stage == "query_index"
+    assert exc_info.value.stage == "dense"
+    assert exc_info.value.query_id == "query-1"
+    assert isinstance(exc_info.value.__cause__, VectorStoreError)

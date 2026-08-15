@@ -10,14 +10,9 @@ from rag.contracts.retrieval import (
     ScoreProvenance,
 )
 from rag.embed import EmbeddingRequest, EmbeddingService, EmbeddingServiceError
+from rag.errors import RetrievalError
 from rag.index.sync import ContentHasher
 from rag.index.vector_store import VectorQueryResult, VectorStore, VectorStoreError
-
-
-class SemanticIndexReaderError(RuntimeError):
-    def __init__(self, *, stage: str, message: str) -> None:
-        self.stage = stage
-        super().__init__(f"Semantic index reader failed during {stage}: {message}")
 
 
 @dataclass(frozen=True)
@@ -30,9 +25,11 @@ class SemanticIndexReader:
         self, query: RetrievalQuery, limit: int = 5
     ) -> tuple[RetrievalCandidate, ...]:
         if limit <= 0:
-            raise SemanticIndexReaderError(
-                stage="query_index",
+            raise RetrievalError(
+                stage="dense",
+                query_id=query.query_id,
                 message="limit must be greater than zero",
+                hint="Set dense_top_k to a positive value.",
             )
 
         try:
@@ -45,17 +42,21 @@ class SemanticIndexReader:
                 )
             )
         except (EmbeddingServiceError, ValueError) as exc:
-            raise SemanticIndexReaderError(
-                stage="embed_query",
+            raise RetrievalError(
+                stage="dense",
+                query_id=query.query_id,
                 message=str(exc),
+                hint="Verify the embedding model and normalized query text.",
             ) from exc
 
         try:
             hits = self.store.query(embedding.vector, limit=limit)
         except VectorStoreError as exc:
-            raise SemanticIndexReaderError(
-                stage="query_index",
+            raise RetrievalError(
+                stage="dense",
+                query_id=query.query_id,
                 message=str(exc),
+                hint="Verify the vector index path, collection, and schema.",
             ) from exc
 
         return tuple(_to_retrieval_result(hit) for hit in hits)
