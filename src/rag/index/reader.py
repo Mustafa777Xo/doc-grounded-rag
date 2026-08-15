@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 
 from rag.contracts.chunk import Chunk
 from rag.contracts.retrieval import (
-    QueryFilters,
     RetrievalCandidate,
     RetrievalQuery,
     RetrieverSource,
@@ -14,6 +13,7 @@ from rag.embed import EmbeddingRequest, EmbeddingService, EmbeddingServiceError
 from rag.errors import RetrievalError
 from rag.index.sync import ContentHasher
 from rag.index.vector_store import VectorQueryResult, VectorStore, VectorStoreError
+from rag.retrieve.filters import matches_query_filters
 
 
 @dataclass(frozen=True)
@@ -66,7 +66,9 @@ class SemanticIndexReader:
 
         try:
             eligible_hits = (
-                hit for hit in hits if _matches_filters(hit, query.filters)
+                hit
+                for hit in hits
+                if matches_query_filters(hit.row.metadata, query.filters)
             )
             ordered_hits = sorted(
                 eligible_hits,
@@ -97,13 +99,4 @@ def _to_retrieval_result(hit: VectorQueryResult) -> RetrievalCandidate:
         ),
         scores=ScoreProvenance(dense_score=hit.score),
         sources=frozenset({RetrieverSource.DENSE}),
-    )
-
-
-def _matches_filters(hit: VectorQueryResult, filters: QueryFilters) -> bool:
-    metadata = hit.row.metadata
-    return (
-        (not filters.doc_ids or metadata.doc_id in filters.doc_ids)
-        and (not filters.source_files or metadata.source_file in filters.source_files)
-        and (not filters.pages or metadata.page in filters.pages)
     )

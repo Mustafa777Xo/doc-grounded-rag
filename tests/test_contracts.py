@@ -20,6 +20,7 @@ from rag.contracts.indexing import (
 from rag.contracts.retrieval import (
     RETRIEVAL_CANDIDATE_SCHEMA_VERSION,
     RETRIEVAL_QUERY_SCHEMA_VERSION,
+    KeywordDiagnostics,
     QueryFilters,
     RetrievalCandidate,
     RetrievalQuery,
@@ -412,6 +413,10 @@ def test_retrieval_candidate_is_immutable() -> None:
         chunk=_make_chunk(),
         scores=ScoreProvenance(keyword_score=0.5),
         sources=frozenset({RetrieverSource.KEYWORD}),
+        keyword_diagnostics=KeywordDiagnostics(
+            source_rank=1,
+            matched_terms=("policy",),
+        ),
     )
     with pytest.raises(Exception):
         candidate.rank = 1  # type: ignore[misc]
@@ -469,6 +474,10 @@ def test_candidate_accepts_scores_from_both_retrievers() -> None:
             fusion_score=0.03,
         ),
         sources=frozenset({RetrieverSource.DENSE, RetrieverSource.KEYWORD}),
+        keyword_diagnostics=KeywordDiagnostics(
+            source_rank=2,
+            matched_terms=("coverage", "policy"),
+        ),
     )
     assert candidate.scores.dense_score == 0.72
     assert candidate.scores.keyword_score == 3.4
@@ -490,6 +499,24 @@ def test_candidate_rejects_invalid_rank() -> None:
             scores=ScoreProvenance(dense_score=0.5),
             sources=frozenset({RetrieverSource.DENSE}),
             rank=0,
+        )
+
+
+def test_keyword_diagnostics_require_canonical_terms_and_positive_rank() -> None:
+    with pytest.raises(ValueError, match="source_rank"):
+        KeywordDiagnostics(source_rank=0, matched_terms=("policy",))
+    with pytest.raises(ValueError, match="cannot be empty"):
+        KeywordDiagnostics(source_rank=1, matched_terms=())
+    with pytest.raises(ValueError, match="sorted and unique"):
+        KeywordDiagnostics(source_rank=1, matched_terms=("policy", "coverage"))
+
+
+def test_candidate_requires_keyword_diagnostics_with_keyword_source() -> None:
+    with pytest.raises(ValueError, match="keyword_diagnostics"):
+        RetrievalCandidate(
+            chunk=_make_chunk(),
+            scores=ScoreProvenance(keyword_score=1.0),
+            sources=frozenset({RetrieverSource.KEYWORD}),
         )
 
 
@@ -598,6 +625,10 @@ def test_reranked_candidate_serialization_is_canonical() -> None:
             rerank_score=7.3,
         ),
         sources=frozenset({RetrieverSource.KEYWORD, RetrieverSource.DENSE}),
+        keyword_diagnostics=KeywordDiagnostics(
+            source_rank=3,
+            matched_terms=("coverage", "policy"),
+        ),
         rank=1,
     )
     assert candidate.to_json() == candidate.to_json()
@@ -610,6 +641,10 @@ def test_reranked_candidate_serialization_is_canonical() -> None:
         "rerank_score": 7.3,
     }
     assert parsed["sources"] == ["dense", "keyword"]
+    assert parsed["keyword_diagnostics"] == {
+        "matched_terms": ["coverage", "policy"],
+        "source_rank": 3,
+    }
     assert parsed["rank"] == 1
     assert parsed["chunk"]["chunk_id"] == "c1"
 

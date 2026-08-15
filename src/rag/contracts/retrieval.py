@@ -8,7 +8,7 @@ from enum import StrEnum
 from rag.contracts.chunk import Chunk
 
 RETRIEVAL_QUERY_SCHEMA_VERSION = "retrieval_query.v1"
-RETRIEVAL_CANDIDATE_SCHEMA_VERSION = "retrieval_candidate.v1"
+RETRIEVAL_CANDIDATE_SCHEMA_VERSION = "retrieval_candidate.v2"
 
 
 class RetrieverSource(StrEnum):
@@ -96,10 +96,33 @@ class ScoreProvenance:
 
 
 @dataclass(frozen=True)
+class KeywordDiagnostics:
+    source_rank: int
+    matched_terms: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.source_rank < 1:
+            raise ValueError("source_rank must be at least 1")
+        if not self.matched_terms:
+            raise ValueError("matched_terms cannot be empty")
+        if any(not term for term in self.matched_terms):
+            raise ValueError("matched_terms cannot contain empty values")
+        if self.matched_terms != tuple(sorted(set(self.matched_terms))):
+            raise ValueError("matched_terms must be sorted and unique")
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "source_rank": self.source_rank,
+            "matched_terms": list(self.matched_terms),
+        }
+
+
+@dataclass(frozen=True)
 class RetrievalCandidate:
     chunk: Chunk
     scores: ScoreProvenance
     sources: frozenset[RetrieverSource]
+    keyword_diagnostics: KeywordDiagnostics | None = None
     rank: int | None = None
 
     def __post_init__(self) -> None:
@@ -113,6 +136,10 @@ class RetrievalCandidate:
             raise ValueError(
                 "keyword source and keyword_score must be present together"
             )
+        if has_keyword_source != (self.keyword_diagnostics is not None):
+            raise ValueError(
+                "keyword source and keyword_diagnostics must be present together"
+            )
         if self.rank is not None and self.rank < 1:
             raise ValueError("rank must be at least 1")
 
@@ -122,6 +149,11 @@ class RetrievalCandidate:
             "chunk": self.chunk.to_dict(),
             "scores": self.scores.to_dict(),
             "sources": sorted(source.value for source in self.sources),
+            "keyword_diagnostics": (
+                self.keyword_diagnostics.to_dict()
+                if self.keyword_diagnostics is not None
+                else None
+            ),
             "rank": self.rank,
         }
 

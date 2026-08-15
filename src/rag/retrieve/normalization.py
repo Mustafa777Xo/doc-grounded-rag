@@ -7,6 +7,13 @@ from rag.contracts.retrieval import QueryFilters, RetrievalQuery
 from rag.errors import RetrievalError
 
 
+def normalize_retrieval_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", text)
+    normalized = normalized.casefold()
+    normalized = unicodedata.normalize("NFKC", normalized)
+    return " ".join(normalized.split())
+
+
 @dataclass(frozen=True)
 class QueryNormalizer:
     def normalize(
@@ -16,10 +23,7 @@ class QueryNormalizer:
         original_text: str,
         filters: QueryFilters | None = None,
     ) -> RetrievalQuery:
-        normalized_text = unicodedata.normalize("NFKC", original_text)
-        normalized_text = normalized_text.casefold()
-        normalized_text = unicodedata.normalize("NFKC", normalized_text)
-        normalized_text = " ".join(normalized_text.split())
+        normalized_text = normalize_retrieval_text(original_text)
         if not normalized_text:
             raise RetrievalError(
                 stage="normalization",

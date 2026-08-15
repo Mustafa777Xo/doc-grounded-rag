@@ -297,8 +297,16 @@ def test_retrieval_contract_after_reindex_preserves_required_metadata(
     )
     payload = reader.retrieve(query, limit=1)[0].to_dict()
 
-    assert set(payload) == {"schema_version", "chunk", "scores", "sources", "rank"}
+    assert set(payload) == {
+        "schema_version",
+        "chunk",
+        "scores",
+        "sources",
+        "keyword_diagnostics",
+        "rank",
+    }
     assert payload["sources"] == ["dense"]
+    assert payload["keyword_diagnostics"] is None
     scores = payload["scores"]
     assert isinstance(scores, dict)
     assert isinstance(scores["dense_score"], float)

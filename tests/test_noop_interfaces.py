@@ -4,6 +4,7 @@ from pathlib import Path
 
 from rag.contracts.chunk import Chunk
 from rag.contracts.retrieval import (
+    KeywordDiagnostics,
     RetrievalCandidate,
     RetrievalQuery,
     RetrieverSource,
@@ -133,6 +134,10 @@ def test_noop_reranker_is_deterministic() -> None:
             chunk=chunk_b,
             scores=ScoreProvenance(keyword_score=0.9),
             sources=frozenset({RetrieverSource.KEYWORD}),
+            keyword_diagnostics=KeywordDiagnostics(
+                source_rank=1,
+                matched_terms=("policy",),
+            ),
         ),
     )
     first = reranker.rerank(_query(), input_results)

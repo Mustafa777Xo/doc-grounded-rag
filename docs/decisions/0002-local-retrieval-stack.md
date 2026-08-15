@@ -50,10 +50,18 @@ Use:
 - license: MIT
 - backend: NumPy sparse scoring
 - optional extras: none for the first implementation
+- method: Lucene BM25 with `k1=1.5` and `b=0.75`
+- score dtype: float32
+- normalization: NFKC, Unicode casefold, NFKC, and whitespace collapse
+- token pattern: `(?u)\b\w+\b`
+- stopwords: none
+- stemming: none
+- storage: immutable in-memory index rebuilt from a complete chunk snapshot
 
-The first keyword retriever will not use stemming. Tokenization, stopword, and
-case-normalization decisions belong to the keyword-retriever ticket because they
-affect lexical index compatibility.
+The explicit token pattern retains one-character terms and acronyms. Punctuation
+and hyphens split terms. Query and corpus text share one normalization function
+to prevent lexical drift, and the application sorts chunks and vocabulary before
+building the BM25S index for reproducibility.
 
 ### Cross-encoder reranking
 
@@ -88,8 +96,8 @@ loading policy until a later dependency upgrade is revalidated.
 The embedding stack is declared as runtime dependencies by the real embedding
 provider ticket. NumPy is pinned to the S3-00 verified version because newer
 NumPy 2.5 stubs require a Python 3.12 type grammar while this project type-checks
-against Python 3.11. The BM25S declaration remains deferred until the keyword
-retriever is implemented.
+against Python 3.11. BM25S is declared as a runtime dependency by the keyword
+retriever implementation.
 
 Benchmark results record the complete verified stack, including resolved NumPy
 and SciPy versions. Those results describe the verified environment; they are
@@ -147,8 +155,12 @@ Never mix hash embeddings and MiniLM embeddings in one collection. The current
 collection schema checks must continue to reject incompatible model identity or
 dimensions.
 
-Rebuild only the lexical index when the BM25S version, tokenization, stopwords,
-stemming policy, or source chunks change.
+The lexical index is rebuilt in memory whenever a keyword retriever is created.
+Construct it from the complete authoritative chunk snapshot after any chunk is
+added, changed, or deleted, or when the BM25S version, normalization, token
+pattern, stopwords, stemming, scoring parameters, or score dtype changes. The
+first implementation intentionally has no persisted or incremental lexical
+index, eliminating a second on-disk artifact that could drift from the corpus.
 
 Changing the cross-encoder requires reranking benchmark and evaluation
 rebaselining, but not dense reindexing.
@@ -158,6 +170,8 @@ rebaselining, but not dense reindexing.
 - In-repository BM25: rejected because BM25S provides a focused, tested
   implementation without a service dependency.
 - `rank-bm25`: rejected in favor of BM25S's sparse index and faster query path.
+- Persisted BM25S arrays: deferred until measured startup cost justifies a
+  versioned manifest, corpus fingerprint, and atomic multi-file publication.
 - Larger embedding and reranking models: deferred until evaluation shows that the
   MiniLM quality/latency tradeoff is insufficient.
 - MPS inference: excluded from the baseline because the current goal is a stable,

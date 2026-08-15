@@ -21,7 +21,7 @@ while the original text remains available for display and diagnostics.
   "schema_version": "retrieval_query.v1",
   "query_id": "query-001",
   "original_text": "  Who is eligible? ",
-  "normalized_text": "Who is eligible?",
+  "normalized_text": "who is eligible?",
   "filters": {
     "doc_ids": ["benefits-handbook"],
     "pages": [],
@@ -41,6 +41,10 @@ score without treating scores from different systems as interchangeable.
 - `fusion_score` is the score assigned during candidate fusion.
 - `rerank_score` is the cross-encoder score.
 - `rank` is one-based when assigned and `null` before ranking.
+- `keyword_diagnostics.source_rank` preserves the original BM25 rank after later
+  fusion or reranking changes the generic rank.
+- `keyword_diagnostics.matched_terms` contains sorted unique normalized terms
+  shared by the query and chunk.
 
 All present scores must be finite. A candidate must have a dense or keyword
 score, and each retriever score must agree with its corresponding source.
@@ -61,11 +65,34 @@ an empty candidate tuple. A missing or unbootstrapped collection remains an
 actionable `dense`-stage error. Dense retrieval does not apply a score threshold;
 a non-empty eligible collection returns its nearest neighbors up to top-k.
 
+## Keyword Retrieval
+
+`BM25KeywordRetriever` builds an immutable in-memory BM25S index from a complete
+`Chunk` snapshot sorted by `chunk_id`. Corpus and query text use the same NFKC,
+Unicode casefold, and whitespace policy. The explicit token pattern is
+`(?u)\b\w+\b`, which retains one-character terms and acronyms while splitting on
+punctuation and hyphens. Stemming and stopword removal are disabled.
+
+The retriever uses BM25S 0.3.10 with Lucene scoring, `k1=1.5`, `b=0.75`, float32
+scores, and the NumPy backend. It scores against global corpus statistics, then
+applies the same metadata filter semantics as dense retrieval before top-k
+selection. Positive finite raw scores are stored as `keyword_score`. Ties break
+by `chunk_id`.
+
+Tokenless, out-of-vocabulary, zero-score, and unmatched-filter queries return an
+empty tuple. The retriever never pads results with zero-score documents.
+
+The lexical index is not persisted. Recreate the retriever from the complete
+authoritative chunk snapshot after any addition, text or metadata change,
+deletion, BM25S upgrade, or lexical policy change. Because construction always
+rebuilds from that snapshot and there is no incremental mutation API, removed or
+changed chunks cannot survive in a newly published retriever.
+
 ### Dense-Only Candidate
 
 ```json
 {
-  "schema_version": "retrieval_candidate.v1",
+  "schema_version": "retrieval_candidate.v2",
   "chunk": {
     "chunk_id": "benefits-p0-c0",
     "doc_id": "benefits-handbook",
@@ -83,6 +110,7 @@ a non-empty eligible collection returns its nearest neighbors up to top-k.
     "rerank_score": null
   },
   "sources": ["dense"],
+  "keyword_diagnostics": null,
   "rank": null
 }
 ```
@@ -91,7 +119,7 @@ a non-empty eligible collection returns its nearest neighbors up to top-k.
 
 ```json
 {
-  "schema_version": "retrieval_candidate.v1",
+  "schema_version": "retrieval_candidate.v2",
   "chunk": {
     "chunk_id": "benefits-p0-c0",
     "doc_id": "benefits-handbook",
@@ -109,6 +137,10 @@ a non-empty eligible collection returns its nearest neighbors up to top-k.
     "rerank_score": null
   },
   "sources": ["dense", "keyword"],
+  "keyword_diagnostics": {
+    "source_rank": 1,
+    "matched_terms": ["eligibility"]
+  },
   "rank": null
 }
 ```
@@ -117,7 +149,7 @@ a non-empty eligible collection returns its nearest neighbors up to top-k.
 
 ```json
 {
-  "schema_version": "retrieval_candidate.v1",
+  "schema_version": "retrieval_candidate.v2",
   "chunk": {
     "chunk_id": "benefits-p0-c0",
     "doc_id": "benefits-handbook",
@@ -135,6 +167,10 @@ a non-empty eligible collection returns its nearest neighbors up to top-k.
     "rerank_score": 7.18
   },
   "sources": ["dense", "keyword"],
+  "keyword_diagnostics": {
+    "source_rank": 1,
+    "matched_terms": ["eligibility"]
+  },
   "rank": 1
 }
 ```

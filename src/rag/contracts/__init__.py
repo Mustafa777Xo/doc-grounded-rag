@@ -12,6 +12,7 @@ from rag.contracts.indexing import (
 from rag.contracts.retrieval import (
     RETRIEVAL_CANDIDATE_SCHEMA_VERSION,
     RETRIEVAL_QUERY_SCHEMA_VERSION,
+    KeywordDiagnostics,
     QueryFilters,
     RetrievalCandidate,
     RetrievalQuery,
@@ -31,6 +32,7 @@ __all__ = [
     "VectorIndexRow",
     "RETRIEVAL_CANDIDATE_SCHEMA_VERSION",
     "RETRIEVAL_QUERY_SCHEMA_VERSION",
+    "KeywordDiagnostics",
     "QueryFilters",
     "RetrievalCandidate",
     "RetrievalQuery",
