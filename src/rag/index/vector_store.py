@@ -69,9 +69,25 @@ class SQLiteVectorStore:
                 self._insert_schema(connection, schema)
                 return
             if existing != schema:
+                checked_fields = (
+                    "vector_index_schema_version",
+                    "embedding_schema_version",
+                    "chunk_schema_version",
+                    "model_name",
+                    "model_version",
+                    "dim",
+                )
+                mismatches = "; ".join(
+                    f"{field_name}: existing={getattr(existing, field_name)!r}, "
+                    f"requested={getattr(schema, field_name)!r}"
+                    for field_name in checked_fields
+                    if getattr(existing, field_name) != getattr(schema, field_name)
+                )
                 raise VectorStoreSchemaError(
                     "vector store schema mismatch for collection "
-                    f"{self.collection_name!r}"
+                    f"{self.collection_name!r}: {mismatches}. "
+                    "Rebuild the collection before changing its embedding model, "
+                    "revision, dimension, or schema version."
                 )
 
     def upsert(self, rows: Sequence[VectorIndexRow]) -> int:

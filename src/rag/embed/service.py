@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from rag.contracts.indexing import EMBEDDING_SCHEMA_VERSION, EmbeddingRecord
-from rag.embed.model_client import EmbeddingProvider
+from rag.embed.model_client import EmbeddingBatchError, EmbeddingProvider
 
 
 class EmbeddingServiceError(RuntimeError):
@@ -71,4 +71,70 @@ class EmbeddingService:
         self,
         requests: Sequence[EmbeddingRequest],
     ) -> tuple[EmbeddingRecord, ...]:
-        return tuple(self.embed_one(request) for request in requests)
+        ordered_requests = tuple(requests)
+        if not ordered_requests:
+            return ()
+        try:
+            vectors = self._provider.embed_batch(
+                tuple(request.text for request in ordered_requests)
+            )
+        except EmbeddingBatchError as exc:
+            try:
+                failed_chunk_id = ordered_requests[exc.failed_index].chunk_id
+            except IndexError:
+                failed_chunk_id = ",".join(
+                    request.chunk_id for request in ordered_requests
+                )
+            raise EmbeddingServiceError(
+                chunk_id=failed_chunk_id,
+                message=f"provider batch error: {exc}",
+            ) from exc
+        except Exception as exc:
+            chunk_ids = ",".join(request.chunk_id for request in ordered_requests)
+            raise EmbeddingServiceError(
+                chunk_id=chunk_ids,
+                message=f"provider batch error: {exc}",
+            ) from exc
+        if len(vectors) != len(ordered_requests):
+            chunk_ids = ",".join(request.chunk_id for request in ordered_requests)
+            raise EmbeddingServiceError(
+                chunk_id=chunk_ids,
+                message=(
+                    f"provider returned {len(vectors)} vectors, "
+                    f"expected {len(ordered_requests)}"
+                ),
+            )
+        return tuple(
+            self._build_record(request=request, vector=vector)
+            for request, vector in zip(ordered_requests, vectors, strict=True)
+        )
+
+    def _build_record(
+        self,
+        *,
+        request: EmbeddingRequest,
+        vector: tuple[float, ...],
+    ) -> EmbeddingRecord:
+        if len(vector) != self._provider.dim:
+            raise EmbeddingServiceError(
+                chunk_id=request.chunk_id,
+                message=(
+                    "provider returned vector dimension "
+                    f"{len(vector)}, expected {self._provider.dim}"
+                ),
+            )
+        try:
+            return EmbeddingRecord(
+                schema_version=EMBEDDING_SCHEMA_VERSION,
+                chunk_id=request.chunk_id,
+                vector=vector,
+                dim=self._provider.dim,
+                model_name=self._provider.model_name,
+                model_version=self._provider.model_version,
+                content_hash=request.content_hash,
+            )
+        except ValueError as exc:
+            raise EmbeddingServiceError(
+                chunk_id=request.chunk_id,
+                message=f"invalid embedding record: {exc}",
+            ) from exc

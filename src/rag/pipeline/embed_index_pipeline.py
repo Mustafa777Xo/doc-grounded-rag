@@ -23,7 +23,7 @@ from rag.embed import (
     EmbeddingProvider,
     EmbeddingService,
     EmbeddingTextPreparer,
-    HashEmbeddingProvider,
+    SentenceTransformerEmbeddingProvider,
 )
 from rag.index import IndexSyncSummary, SQLiteVectorStore, VectorIndexWriter
 from rag.index.schema import VectorStoreSchema
@@ -183,7 +183,14 @@ def build_embed_index_pipeline(
     resolved_settings = (
         settings if settings is not None else Settings(docs_dir=Path("."))
     )
-    resolved_provider = provider if provider is not None else HashEmbeddingProvider()
+    resolved_provider = (
+        provider
+        if provider is not None
+        else SentenceTransformerEmbeddingProvider(
+            model_name=resolved_settings.embedding_model,
+            model_version=resolved_settings.embedding_model_revision,
+        )
+    )
     policy = EmbeddingPreparationPolicy.from_settings(resolved_settings)
     service = EmbeddingService(provider=resolved_provider)
     schema = VectorStoreSchema(
@@ -239,7 +246,11 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Sequence[str] | None = None, stdout: TextIO | None = None) -> int:
+def main(
+    argv: Sequence[str] | None = None,
+    stdout: TextIO | None = None,
+    provider: EmbeddingProvider | None = None,
+) -> int:
     args = _parse_args(argv)
     output = stdout if stdout is not None else sys.stdout
     logger = get_logger(name="rag.embed_index", stream=sys.stderr)
@@ -247,6 +258,7 @@ def main(argv: Sequence[str] | None = None, stdout: TextIO | None = None) -> int
         pipeline = build_embed_index_pipeline(
             index_path=args.index,
             collection_name=args.collection,
+            provider=provider,
             logger=logger,
         )
         summary = pipeline.run(args.chunks)

@@ -252,8 +252,20 @@ incremented.
 
 Build or re-sync the local vector index from Sprint 1 chunk artifacts:
 
+Prefetch the revision-pinned model once while network access is available:
+
 ```sh
-make embed-index CHUNKS=data/processed/chunks/chunks.jsonl INDEX=data/index/vector_store.sqlite COLLECTION=default
+python scripts/benchmark_retrieval_stack.py prefetch
+```
+
+Normal indexing loads `sentence-transformers/all-MiniLM-L6-v2` on CPU from the
+Hugging Face cache only. It never downloads weights at runtime and does not fall
+back to hash embeddings. The cache is read from `HF_HOME` when set, otherwise
+from the default Hugging Face user cache. Model files must not be committed.
+
+```sh
+HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+  make embed-index CHUNKS=data/processed/chunks/chunks.jsonl INDEX=data/index/vector_store.sqlite COLLECTION=default
 ```
 
 The command loads and validates the JSONL chunk artifact, embeds only new or
@@ -327,8 +339,10 @@ Reader behavior:
 Rebuild or reindex vectors when any of these values change:
 
 - embedding model name
-- embedding model version
+- embedding model revision (`EMBEDDING_MODEL_REVISION`)
+- Sentence Transformers, Transformers, or PyTorch version
 - embedding dimension
+- pooling, L2-normalization, or model truncation policy
 - embedding schema version
 - vector index schema version
 - chunk schema version
@@ -352,6 +366,11 @@ Schema mismatches fail clearly during index bootstrap. They should not be worked
 around by appending vectors with a different dimension or model version into the
 same collection.
 
+To rebuild in place, remove the SQLite index only after preserving anything you
+need from it, then rerun `make embed-index`. To retain an old index, use a new
+`INDEX` path or `COLLECTION` name. Never mix hash and MiniLM vectors in one
+collection.
+
 ## Operational Limits And Troubleshooting
 
 Default embedding preparation limits:
@@ -372,5 +391,7 @@ Common failures:
   rejected to prevent duplicate vectors.
 - Missing or incompatible index schema: rebuild the index or use a new
   `COLLECTION`.
+- Missing cached model: run the explicit prefetch command once with network
+  access, then retry with the offline environment flags.
 - Query smoke failure from a missing index: run `make embed-index` before the
   reader smoke test.

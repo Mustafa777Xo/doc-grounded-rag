@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 
 import pytest
 
@@ -25,6 +26,23 @@ def _request(
         text=text,
         content_hash=content_hash,
     )
+
+
+class BatchTrackingProvider:
+    dim = 2
+    model_name = "batch-tracker"
+    model_version = "test"
+
+    def __init__(self) -> None:
+        self.batches: list[tuple[str, ...]] = []
+
+    def embed_text(self, text: str) -> tuple[float, ...]:
+        raise AssertionError("embed_text must not be called for a batch")
+
+    def embed_batch(self, texts: Sequence[str]) -> tuple[tuple[float, ...], ...]:
+        batch = tuple(texts)
+        self.batches.append(batch)
+        return tuple((1.0, 0.0) for _ in batch)
 
 
 def test_embedding_service_embeds_one_text_as_record() -> None:
@@ -55,6 +73,20 @@ def test_embedding_service_embeds_batch_in_input_order() -> None:
         "sha256:first",
         "sha256:second",
     )
+
+
+def test_embedding_service_sends_each_prepared_batch_in_one_provider_call() -> None:
+    provider = BatchTrackingProvider()
+    service = EmbeddingService(provider=provider)
+    requests = (
+        _request(chunk_id="chunk-1", text="first"),
+        _request(chunk_id="chunk-2", text="second"),
+    )
+
+    records = service.embed_batch(requests)
+
+    assert provider.batches == [("first", "second")]
+    assert tuple(record.chunk_id for record in records) == ("chunk-1", "chunk-2")
 
 
 def test_embedding_service_hides_provider_response_shape() -> None:

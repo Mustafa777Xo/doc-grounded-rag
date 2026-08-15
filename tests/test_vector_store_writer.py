@@ -210,6 +210,19 @@ def test_sqlite_vector_store_rejects_row_schema_mismatch(tmp_path: Path) -> None
         store.upsert((_row("chunk-2", (1.0, 0.0, 0.0), model_name="expected"),))
 
 
+def test_sqlite_vector_store_reports_schema_mismatch_details(tmp_path: Path) -> None:
+    store = SQLiteVectorStore(tmp_path / "vector.sqlite")
+    store.bootstrap_collection(_schema(model_name="old-model", dim=2))
+
+    with pytest.raises(VectorStoreSchemaError) as exc_info:
+        store.bootstrap_collection(_schema(model_name="new-model", dim=3))
+
+    message = str(exc_info.value)
+    assert "model_name: existing='old-model', requested='new-model'" in message
+    assert "dim: existing=2, requested=3" in message
+    assert "Rebuild the collection" in message
+
+
 def test_sqlite_vector_store_get_indexed_states(tmp_path: Path) -> None:
     store = SQLiteVectorStore(tmp_path / "vector.sqlite")
     store.bootstrap_collection(_schema())

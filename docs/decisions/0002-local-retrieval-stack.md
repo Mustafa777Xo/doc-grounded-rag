@@ -28,6 +28,7 @@ The selected stack must:
 Use:
 
 - package: `sentence-transformers==5.6.0`
+- array runtime: `numpy==2.2.6`
 - model framework: `transformers==4.57.6`
 - tensor framework: `torch==2.7.1`
 - model: `sentence-transformers/all-MiniLM-L6-v2`
@@ -37,9 +38,9 @@ Use:
 - input limit: 256 word pieces; longer input is truncated by the model
 - baseline device: CPU
 
-The provider added in a later Sprint 3 ticket must set `normalize_embeddings=True`
-and record the full model revision as `model_version`. The existing hash provider
-remains the default deterministic test double.
+The production provider sets `normalize_embeddings=True`, loads on CPU with
+`local_files_only=True`, and records the full model revision as `model_version`.
+The existing hash provider remains the deterministic test double.
 
 ### Keyword retrieval
 
@@ -84,9 +85,11 @@ though every stored weight was finite. Loading the repository's equivalent
 finite, correctly ranked scores. The real reranker adapter must preserve that
 loading policy until a later dependency upgrade is revalidated.
 
-The package declarations are deferred to the tickets that implement the real
-embedding provider and keyword retriever. This keeps the current no-op and
-hash-based installation lightweight until the runtime components exist.
+The embedding stack is declared as runtime dependencies by the real embedding
+provider ticket. NumPy is pinned to the S3-00 verified version because newer
+NumPy 2.5 stubs require a Python 3.12 type grammar while this project type-checks
+against Python 3.11. The BM25S declaration remains deferred until the keyword
+retriever is implemented.
 
 Benchmark results record the complete verified stack, including resolved NumPy
 and SciPy versions. Those results describe the verified environment; they are

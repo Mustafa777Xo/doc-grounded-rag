@@ -24,6 +24,10 @@ class Settings(BaseSettings):
         default="sentence-transformers/all-MiniLM-L6-v2",
         min_length=1,
     )
+    embedding_model_revision: str = Field(
+        default="c9745ed1d9f207416be6d2e6f8de32d1f16199bf",
+        min_length=1,
+    )
     embedding_batch_size: int = Field(default=32, gt=0)
     embedding_max_chars: int = Field(default=4096, gt=0)
     vector_index_path: Path = Path("data/index/vector_store.sqlite")

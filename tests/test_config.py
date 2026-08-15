@@ -22,6 +22,9 @@ def test_config_loads_with_required_field() -> None:
     assert settings.embedding_batch_size == 32
     assert settings.embedding_max_chars == 4096
     assert settings.embedding_model == "sentence-transformers/all-MiniLM-L6-v2"
+    assert settings.embedding_model_revision == (
+        "c9745ed1d9f207416be6d2e6f8de32d1f16199bf"
+    )
     assert settings.vector_index_path == Path("data/index/vector_store.sqlite")
     assert settings.vector_collection_name == "default"
     assert settings.dense_top_k == 20
@@ -134,6 +137,7 @@ def test_config_retrieval_settings() -> None:
         final_result_count=8,
         reranker_batch_size=4,
         embedding_model="org/embedder",
+        embedding_model_revision="revision-1",
         reranker_model="org/reranker",
     )
 
@@ -144,6 +148,7 @@ def test_config_retrieval_settings() -> None:
     assert settings.final_result_count == 8
     assert settings.reranker_batch_size == 4
     assert settings.embedding_model == "org/embedder"
+    assert settings.embedding_model_revision == "revision-1"
     assert settings.reranker_model == "org/reranker"
 
 
@@ -165,6 +170,8 @@ def test_config_rejects_non_positive_retrieval_settings() -> None:
 def test_config_rejects_empty_retrieval_model_names() -> None:
     with pytest.raises(ValidationError):
         Settings(docs_dir=Path("data/pdfs"), embedding_model="")
+    with pytest.raises(ValidationError):
+        Settings(docs_dir=Path("data/pdfs"), embedding_model_revision="")
     with pytest.raises(ValidationError):
         Settings(docs_dir=Path("data/pdfs"), reranker_model="")
 

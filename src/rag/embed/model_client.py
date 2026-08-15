@@ -2,11 +2,19 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, Sequence
 
 
 class EmbeddingProviderError(RuntimeError):
     """Raised by embedding providers when a text cannot be embedded."""
+
+
+class EmbeddingBatchError(EmbeddingProviderError):
+    def __init__(self, message: str, *, failed_index: int) -> None:
+        if failed_index < 0:
+            raise ValueError("failed_index cannot be negative")
+        super().__init__(message)
+        self.failed_index = failed_index
 
 
 class EmbeddingProvider(Protocol):
@@ -20,6 +28,8 @@ class EmbeddingProvider(Protocol):
     def dim(self) -> int: ...
 
     def embed_text(self, text: str) -> tuple[float, ...]: ...
+
+    def embed_batch(self, texts: Sequence[str]) -> tuple[tuple[float, ...], ...]: ...
 
 
 @dataclass(frozen=True)
@@ -48,6 +58,15 @@ class HashEmbeddingProvider:
             counter += 1
         return tuple(values[: self.dim])
 
+    def embed_batch(self, texts: Sequence[str]) -> tuple[tuple[float, ...], ...]:
+        vectors: list[tuple[float, ...]] = []
+        for index, text in enumerate(texts):
+            try:
+                vectors.append(self.embed_text(text))
+            except EmbeddingProviderError as exc:
+                raise EmbeddingBatchError(str(exc), failed_index=index) from exc
+        return tuple(vectors)
+
 
 @dataclass(frozen=True)
 class MockEmbeddingProvider:
@@ -73,3 +92,12 @@ class MockEmbeddingProvider:
         if self.force_wrong_dim:
             return vector + (1.0,)
         return vector
+
+    def embed_batch(self, texts: Sequence[str]) -> tuple[tuple[float, ...], ...]:
+        vectors: list[tuple[float, ...]] = []
+        for index, text in enumerate(texts):
+            try:
+                vectors.append(self.embed_text(text))
+            except EmbeddingProviderError as exc:
+                raise EmbeddingBatchError(str(exc), failed_index=index) from exc
+        return tuple(vectors)

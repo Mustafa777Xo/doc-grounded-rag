@@ -5,6 +5,10 @@ import json
 import uuid
 from pathlib import Path
 
+import pytest
+
+import rag.pipeline.embed_index_pipeline as embed_index_module
+from rag.config import Settings
 from rag.contracts.chunk import Chunk
 from rag.embed import HashEmbeddingProvider
 from rag.index import SQLiteVectorStore
@@ -46,6 +50,42 @@ def _write_chunks(path: Path, chunks: tuple[Chunk, ...]) -> None:
 
 def _parse_json_lines(buffer: io.StringIO) -> list[dict[str, object]]:
     return [json.loads(line) for line in buffer.getvalue().splitlines() if line.strip()]
+
+
+def test_pipeline_defaults_to_configured_semantic_provider(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[tuple[str, str]] = []
+
+    def provider_factory(
+        *, model_name: str, model_version: str
+    ) -> HashEmbeddingProvider:
+        calls.append((model_name, model_version))
+        return HashEmbeddingProvider(
+            dim=4,
+            model_name=model_name,
+            model_version=model_version,
+        )
+
+    monkeypatch.setattr(
+        embed_index_module,
+        "SentenceTransformerEmbeddingProvider",
+        provider_factory,
+    )
+    settings = Settings(  # type: ignore[call-arg]
+        docs_dir=tmp_path,
+        embedding_model="sentence-transformers/test-model",
+        embedding_model_revision="revision-1",
+        _env_file=None,
+    )
+
+    build_embed_index_pipeline(
+        index_path=tmp_path / "vector.sqlite",
+        collection_name="default",
+        settings=settings,
+    )
+
+    assert calls == [("sentence-transformers/test-model", "revision-1")]
 
 
 def test_embed_index_pipeline_builds_index_from_chunk_artifact(
@@ -115,6 +155,7 @@ def test_embed_index_main_emits_summary_and_exit_code(tmp_path: Path) -> None:
             "default",
         ),
         stdout=stdout,
+        provider=HashEmbeddingProvider(dim=4),
     )
 
     payload = json.loads(stdout.getvalue())
@@ -143,6 +184,7 @@ def test_embed_index_main_returns_nonzero_for_malformed_chunks(
             "default",
         ),
         stdout=stdout,
+        provider=HashEmbeddingProvider(dim=4),
     )
 
     payload = json.loads(stdout.getvalue())
